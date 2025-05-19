@@ -1,0 +1,8 @@
+flask==2.0.1
+pymongo==4.0.1
+python-dotenv==1.0.1
+firebase-admin==5.0.3
+requests==2.26.0
+gradio==2.8.0
+pyrebase4==4.7.1
+werkzeug<2.1

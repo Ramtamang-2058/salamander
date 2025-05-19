@@ -1,0 +1,30 @@
+# environments & dependency caches
+venv/
+ENV/
+*.egg-info/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# secrets & local configs
+.env
+instance/
+config.py         # if it contains secrets
+
+# IDEs/editors
+.idea/
+.vscode/
+*.sw?
+
+# databases / local storage
+*.sqlite3
+*.db
+
+# migrations (optional – keep if you want to version them)
+# migrations/
+
+# logs
+*.log
+config/*.json
+config/*.json

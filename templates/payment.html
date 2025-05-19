@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salamander: Purchase Credits</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        }
+        .logo-text {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            color: transparent;
+            display: inline-block;
+        }
+        .premium-badge {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        .esewa-btn {
+            background-color: #60bb46;
+        }
+        .khalti-btn {
+            background-color: #5d2e8e;
+        }
+        .plan-card {
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .selected-plan {
+            border: 2px solid #6366f1;
+            box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.2), 0 4px 6px -2px rgba(99, 102, 241, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="flex items-center">
+                            <i class="fas fa-fire text-indigo-600 mr-2"></i>
+                            <span class="font-bold text-xl logo-text">Salamander</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    {% if is_logged_in %}
+                        <div class="flex items-center space-x-4">
+                            {% if user.is_premium %}
+                                <span class="premium-badge text-white text-xs px-2 py-1 rounded-full">PREMIUM</span>
+                            {% endif %}
+                            <span class="text-sm text-gray-700">{{ user.name }}</span>
+                            {% if user.picture %}
+                                <img src="{{ user.picture }}" alt="Profile" class="h-8 w-8 rounded-full">
+                            {% endif %}
+                            <a href="/logout" class="text-sm text-indigo-600 hover:text-indigo-800">Logout</a>
+                        </div>
+                    {% else %}
+                        <a href="/login" class="px-4 py-2 rounded-md text-sm font-medium text-white gradient-bg hover:opacity-90 transition-all">
+                            Login
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-900">Purchase Word Credits</h1>
+            <p class="mt-2 text-gray-600">Select a plan that works for you</p>
+        </div>
+
+        <!-- Plans Selection -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Basic Plan -->
+            <div class="bg-white rounded-lg shadow-sm p-6 plan-card" data-plan="basic" onclick="selectPlan('basic', 500)">
+                <div class="text-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Basic</h3>
+                    <p class="text-sm text-gray-500">For occasional use</p>
+                </div>
+                <div class="text-center mb-4">
+                    <span class="text-3xl font-bold">Rs. 500</span>
+                </div>
+                <ul class="space-y-2 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>10,000 word credits</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>Valid for 30 days</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-times text-red-500 mr-2"></i>
+                        <span class="text-gray-400">Ultra Turbo Mode</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Premium Plan -->
+            <div class="bg-white rounded-lg shadow-sm p-6 plan-card selected-plan" data-plan="premium" onclick="selectPlan('premium', 1000)">
+                <div class="text-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Premium</h3>
+                    <p class="text-sm text-gray-500">Most popular</p>
+                </div>
+                <div class="text-center mb-4">
+                    <span class="text-3xl font-bold">Rs. 1,000</span>
+                </div>
+                <ul class="space-y-2 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>25,000 word credits</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>Valid for 60 days</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>Ultra Turbo Mode</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Pro Plan -->
+            <div class="bg-white rounded-lg shadow-sm p-6 plan-card" data-plan="pro" onclick="selectPlan('pro', 2000)">
+                <div class="text-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Pro</h3>
+                    <p class="text-sm text-gray-500">For power users</p>
+                </div>
+                <div class="text-center mb-4">
+                    <span class="text-3xl font-bold">Rs. 2,000</span>
+                </div>
+                <ul class="space-y-2 mb-6">
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>60,000 word credits</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>Valid for 90 days</span>
+                    </li>
+                    <li class="flex items-center text-gray-700">
+                        <i class="fas fa-check text-green-500 mr-2"></i>
+                        <span>Ultra Turbo Mode</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">Payment Method</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- eSewa -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 flex items-center">
+                    <input type="radio" id="esewa" name="payment_method" value="esewa" class="mr-3" checked>
+                    <label for="esewa" class="flex items-center cursor-pointer">
+                        <div class="bg-white p-2 rounded-md mr-3">
+                            <img src="/static/images/esewa-logo.png" alt="eSewa" class="h-8 w-auto">
+                        </div>
+                        <div>
+                            <h3 class="font-medium">eSewa</h3>
+                            <p class="text-xs text-gray-500">Pay securely using your eSewa account</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Khalti -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 flex items-center">
+                    <input type="radio" id="khalti" name="payment_method" value="khalti" class="mr-3">
+                    <label for="khalti" class="flex items-center cursor-pointer">
+                        <div class="bg-white p-2 rounded-md mr-3">
+                            <img src="/static/images/khalti-logo.png" alt="Khalti" class="h-8 w-auto">
+                        </div>
+                        <div>
+                            <h3 class="font-medium">Khalti</h3>
+                            <p class="text-xs text-gray-500">Pay securely using your Khalti account</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="mt-6 border-t border-gray-200 pt-4">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-700">Plan:</span>
+                    <span class="font-medium" id="plan-name">Premium</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-700">Words:</span>
+                    <span class="font-medium" id="plan-words">25,000 words</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-700">Validity:</span>
+                    <span class="font-medium" id="plan-validity">60 days</span>
+                </div>
+                <div class="flex justify-between border-t border-gray-200 pt-2 mt-2">
+                    <span class="text-gray-900 font-bold">Total:</span>
+                    <span class="text-gray-900 font-bold" id="plan-total">Rs. 1,000</span>
+                </div>
+            </div>
+
+            <!-- Payment Buttons -->
+            <div class="mt-6 flex justify-center">
+                <button id="esewa-btn" class="px-8 py-3 rounded-md text-white esewa-btn hover:opacity-90 transition-all flex items-center">
+                    <i class="fas fa-lock mr-2"></i> Pay with eSewa
+                </button>
+                <button id="khalti-btn" class="px-8 py-3 rounded-md text-white khalti-btn hover:opacity-90 transition-all flex items-center hidden">
+                    <i class="fas fa-lock mr-2"></i> Pay with Khalti
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div class="text-center text-sm text-gray-500">
+            <p>© 2025 Salamander. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize variables
+        let selectedPlan = 'premium';
+        let selectedAmount = 1000;
+
+        // Function to select a plan
+        function selectPlan(plan, amount) {
+            selectedPlan = plan;
+            selectedAmount = amount;
+
+            // Update UI
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected-plan');
+            });
+            document.querySelector(`[data-plan="${plan}"]`).classList.add('selected-plan');
+
+            // Update summary
+            updateSummary();
+        }
+
+        // Update summary based on selection
+        function updateSummary() {
+            const planName = document.getElementById('plan-name');
+            const planWords = document.getElementById('plan-words');
+            const planValidity = document.getElementById('plan-validity');
+            const planTotal = document.getElementById('plan-total');
+
+            switch(selectedPlan) {
+                case 'basic':
+                    planName.textContent = 'Basic';
+                    planWords.textContent = '10,000 words';
+                    planValidity.textContent = '30 days';
+                    break;
+                case 'premium':
+                    planName.textContent = 'Premium';
+                    planWords.textContent = '25,000 words';
+                    planValidity.textContent = '60 days';
+                    break;
+                case 'pro':
+                    planName.textContent = 'Pro';
+                    planWords.textContent = '60,000 words';
+                    planValidity.textContent = '90 days';
+                    break;
+            }
+
+            planTotal.textContent = `Rs. ${selectedAmount}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial setup
+            updateSummary();
+
+            // Payment method selection
+            const esewaRadio = document.getElementById('esewa');
+            const khaltiRadio = document.getElementById('khalti');
+            const esewaBtn = document.getElementById('esewa-btn');
+            const khaltiBtn = document.getElementById('khalti-btn');
+
+            esewaRadio.addEventListener('change', function() {
+                if (this.checked) {
+                    esewaBtn.classList.remove('hidden');
+                    khaltiBtn.classList.add('hidden');
+                }
+            });
+
+            khaltiRadio.addEventListener('change', function() {
+                if (this.checked) {
+                    khaltiBtn.classList.remove('hidden');
+                    esewaBtn.classList.add('hidden');
+                }
+            });
+
+            // Handle eSewa payment
+            esewaBtn.addEventListener('click', function() {
+                // Replace with actual eSewa integration
+                const esewaParams = {
+                    amt: selectedAmount,
+                    psc: 0,
+                    pdc: 0,
+                    txAmt: 0,
+                    tAmt: selectedAmount,
+                    pid: `SALAMANDER_${Date.now()}`,
+                    scd: 'EPAYTEST', // Your merchant code
+                    su: 'https://salamander.com/payment/success',
+                    fu: 'https://salamander.com/payment/failure'
+                };
+
+                // Create form and submit
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'https://uat.esewa.com.np/epay/main';
+
+                for (const key in esewaParams) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = esewaParams[key];
+                    form.appendChild(input);
+                }
+
+                document.body.appendChild(form);
+                form.submit();
+            });
+
+            // Handle Khalti payment
+            khaltiBtn.addEventListener('click', function() {
+                // Replace with actual Khalti integration
+                // Example using Khalti Web SDK
+                const khaltiConfig = {
+                    publicKey: "your_public_key",
+                    productIdentity: `SALAMANDER_${Date.now()}`,
+                    productName: `${planName.textContent} Plan`,
+                    productUrl: "https://salamander.com",
+                    amount: selectedAmount * 100, // Khalti expects amount in paisa
+                    eventHandler: {
+                        onSuccess(payload) {
+                            // Handle success
+                            window.location.href = "/payment/success?token=" + payload.token;
+                        },
+                        onError(error) {
+                            console.log(error);
+                            alert("Payment failed. Please try again.");
+                        },
+                        onClose() {
+                            console.log("Widget closed");
+                        }
+                    }
+                };
+
+                // Initialize and show Khalti Widget
+                // Note: This requires Khalti Web SDK to be included in the page
+                // window.KhaltiCheckout(khaltiConfig).show();
+
+                // Since we don't have the SDK in this example, just alert
+                alert("Khalti integration will be implemented here");
+            });
+        });
+    </script>
+</body>
+</html>
