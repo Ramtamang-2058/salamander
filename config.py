@@ -22,3 +22,6 @@ FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
 
 # Flask configuration
 FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+
+# Khalti configuration
+KHALTI_SECRET_KEY = os.getenv("KHALTI_SECRET_KEY")

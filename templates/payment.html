@@ -255,7 +255,7 @@
             const planValidity = document.getElementById('plan-validity');
             const planTotal = document.getElementById('plan-total');
 
-            switch(selectedPlan) {
+            switch (selectedPlan) {
                 case 'basic':
                     planName.textContent = 'Basic';
                     planWords.textContent = '10,000 words';
@@ -276,7 +276,7 @@
             planTotal.textContent = `Rs. ${selectedAmount}`;
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Initial setup
             updateSummary();
 
@@ -286,14 +286,14 @@
             const esewaBtn = document.getElementById('esewa-btn');
             const khaltiBtn = document.getElementById('khalti-btn');
 
-            esewaRadio.addEventListener('change', function() {
+            esewaRadio.addEventListener('change', function () {
                 if (this.checked) {
                     esewaBtn.classList.remove('hidden');
                     khaltiBtn.classList.add('hidden');
                 }
             });
 
-            khaltiRadio.addEventListener('change', function() {
+            khaltiRadio.addEventListener('change', function () {
                 if (this.checked) {
                     khaltiBtn.classList.remove('hidden');
                     esewaBtn.classList.add('hidden');
@@ -301,8 +301,7 @@
             });
 
             // Handle eSewa payment
-            esewaBtn.addEventListener('click', function() {
-                // Replace with actual eSewa integration
+            esewaBtn.addEventListener('click', function () {
                 const esewaParams = {
                     amt: selectedAmount,
                     psc: 0,
@@ -315,7 +314,6 @@
                     fu: 'https://salamander.com/payment/failure'
                 };
 
-                // Create form and submit
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'https://uat.esewa.com.np/epay/main';
@@ -333,36 +331,28 @@
             });
 
             // Handle Khalti payment
-            khaltiBtn.addEventListener('click', function() {
-                // Replace with actual Khalti integration
-                // Example using Khalti Web SDK
-                const khaltiConfig = {
-                    publicKey: "your_public_key",
-                    productIdentity: `SALAMANDER_${Date.now()}`,
-                    productName: `${planName.textContent} Plan`,
-                    productUrl: "https://salamander.com",
-                    amount: selectedAmount * 100, // Khalti expects amount in paisa
-                    eventHandler: {
-                        onSuccess(payload) {
-                            // Handle success
-                            window.location.href = "/payment/success?token=" + payload.token;
+            khaltiBtn.addEventListener('click', async function () {
+                try {
+                    const response = await fetch('/api/payment/initiate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
                         },
-                        onError(error) {
-                            console.log(error);
-                            alert("Payment failed. Please try again.");
-                        },
-                        onClose() {
-                            console.log("Widget closed");
-                        }
+                        body: JSON.stringify({
+                            plan: selectedPlan,
+                            amount: selectedAmount
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        window.location.href = data.payment_url;
+                    } else {
+                        alert('Payment initiation failed: ' + data.error);
                     }
-                };
-
-                // Initialize and show Khalti Widget
-                // Note: This requires Khalti Web SDK to be included in the page
-                // window.KhaltiCheckout(khaltiConfig).show();
-
-                // Since we don't have the SDK in this example, just alert
-                alert("Khalti integration will be implemented here");
+                } catch (error) {
+                    alert('An error occurred: ' + error.message);
+                }
             });
         });
     </script>
