@@ -20,7 +20,6 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.name}>'
 
-
 class Humanizer(db.Model):
     __tablename__ = 'humanizers'
     id = db.Column(db.Integer, primary_key=True)
@@ -37,7 +36,6 @@ class Humanizer(db.Model):
     def __repr__(self):
         return f'<Humanizer {self.id}>'
 
-
 class Payment(db.Model):
     __tablename__ = 'payments'
     id = db.Column(db.Integer, primary_key=True)
@@ -46,13 +44,13 @@ class Payment(db.Model):
         db.ForeignKey('users.uid', name='fk_payments_user_id'),
         nullable=False
     )
-    pidx = db.Column(db.String(100), unique=True, nullable=False)  # Khalti payment ID
-    transaction_id = db.Column(db.String(100), nullable=True)  # Khalti transaction ID
+    pidx = db.Column(db.String(100), unique=True, nullable=False)
+    transaction_id = db.Column(db.String(100), nullable=True)
     purchase_order_id = db.Column(db.String(100), unique=True, nullable=False)
-    plan = db.Column(db.String(50), nullable=False)  # e.g., 'basic', 'premium', 'pro'
-    amount = db.Column(db.Integer, nullable=False)  # Amount in paisa
-    status = db.Column(db.String(50),
-                       nullable=False)  # e.g., 'Initiated', 'Completed', 'Pending', 'User canceled', 'Expired'
+    plan = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.String(50), nullable=False)
+    payment_method = db.Column(db.String(50), nullable=False, default='khalti')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -89,7 +87,7 @@ def save_humanizer(user_uid, input_text, humanized_text, ultra_mode=False):
         raise Exception(f"Failed to save humanizer: {str(e)}")
 
 
-def save_payment(user_id, pidx, purchase_order_id, plan, amount, status='Initiated'):
+def save_payment(user_id, pidx, purchase_order_id, plan, amount, status='Initiated', payment_method='khalti'):
     try:
         payment = Payment(
             user_id=user_id,
@@ -97,7 +95,8 @@ def save_payment(user_id, pidx, purchase_order_id, plan, amount, status='Initiat
             purchase_order_id=purchase_order_id,
             plan=plan,
             amount=amount,
-            status=status
+            status=status,
+            payment_method=payment_method
         )
         db.session.add(payment)
         db.session.commit()
@@ -105,7 +104,6 @@ def save_payment(user_id, pidx, purchase_order_id, plan, amount, status='Initiat
     except Exception as e:
         db.session.rollback()
         raise Exception(f"Failed to save payment: {str(e)}")
-
 
 def update_payment(pidx, status, transaction_id=None):
     try:

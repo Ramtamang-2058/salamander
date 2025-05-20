@@ -227,134 +227,115 @@
             <p>© 2025 Salamander. All rights reserved.</p>
         </div>
     </footer>
+<script>
+// Initialize variables
+let selectedPlan = 'premium';
+let selectedAmount = 1000;
+let selectedPaymentMethod = 'esewa';
 
-    <script>
-        // Initialize variables
-        let selectedPlan = 'premium';
-        let selectedAmount = 1000;
+// Function to select a plan
+function selectPlan(plan, amount) {
+    // Update selected class visually
+    document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('selected-plan'));
+    document.querySelector(`[data-plan="${plan}"]`).classList.add('selected-plan');
 
-        // Function to select a plan
-        function selectPlan(plan, amount) {
-            selectedPlan = plan;
-            selectedAmount = amount;
+    // Update the hidden input inside the form
+    document.getElementById('plan-input').value = plan;
 
-            // Update UI
-            document.querySelectorAll('.plan-card').forEach(card => {
-                card.classList.remove('selected-plan');
-            });
-            document.querySelector(`[data-plan="${plan}"]`).classList.add('selected-plan');
+    // Update summary
+    document.getElementById('plan-name').innerText = capitalize(plan);
+    document.getElementById('plan-total').innerText = `Rs. ${amount}`;
+    document.getElementById('plan-words').innerText = plan === 'basic' ? '10,000 words' : plan === 'premium' ? '25,000 words' : '60,000 words';
+    document.getElementById('plan-validity').innerText = plan === 'basic' ? '30 days' : plan === 'premium' ? '60 days' : '90 days';
+}
 
-            // Update summary
-            updateSummary();
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Update summary based on selection
+function updateSummary() {
+    const planName = document.getElementById('plan-name');
+    const planWords = document.getElementById('plan-words');
+    const planValidity = document.getElementById('plan-validity');
+    const planTotal = document.getElementById('plan-total');
+
+    switch(selectedPlan) {
+        case 'basic':
+            planName.textContent = 'Basic';
+            planWords.textContent = '10,000 words';
+            planValidity.textContent = '30 days';
+            break;
+        case 'premium':
+            planName.textContent = 'Premium';
+            planWords.textContent = '25,000 words';
+            planValidity.textContent = '60 days';
+            break;
+        case 'pro':
+            planName.textContent = 'Pro';
+            planWords.textContent = '60,000 words';
+            planValidity.textContent = '90 days';
+            break;
+    }
+
+    planTotal.textContent = `Rs. ${selectedAmount}`;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initial setup
+    updateSummary();
+
+    // Payment method selection
+    const esewaRadio = document.getElementById('esewa');
+    const khaltiRadio = document.getElementById('khalti');
+    const esewaBtn = document.getElementById('esewa-btn');
+    const khaltiBtn = document.getElementById('khalti-btn');
+
+    esewaRadio.addEventListener('change', function() {
+        if (this.checked) {
+            selectedPaymentMethod = 'esewa';
+            esewaBtn.classList.remove('hidden');
+            khaltiBtn.classList.add('hidden');
         }
+    });
 
-        // Update summary based on selection
-        function updateSummary() {
-            const planName = document.getElementById('plan-name');
-            const planWords = document.getElementById('plan-words');
-            const planValidity = document.getElementById('plan-validity');
-            const planTotal = document.getElementById('plan-total');
+    khaltiRadio.addEventListener('change', function() {
+        if (this.checked) {
+            selectedPaymentMethod = 'khalti';
+            khaltiBtn.classList.remove('hidden');
+            esewaBtn.classList.add('hidden');
+        }
+    });
 
-            switch (selectedPlan) {
-                case 'basic':
-                    planName.textContent = 'Basic';
-                    planWords.textContent = '10,000 words';
-                    planValidity.textContent = '30 days';
-                    break;
-                case 'premium':
-                    planName.textContent = 'Premium';
-                    planWords.textContent = '25,000 words';
-                    planValidity.textContent = '60 days';
-                    break;
-                case 'pro':
-                    planName.textContent = 'Pro';
-                    planWords.textContent = '60,000 words';
-                    planValidity.textContent = '90 days';
-                    break;
+    // Handle payment initiation
+    const payButtons = [esewaBtn, khaltiBtn];
+    payButtons.forEach(button => {
+        button.addEventListener('click', async function() {
+            try {
+                const response = await fetch('/api/payment/initiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        plan: selectedPlan,
+                        amount: selectedAmount,
+                        payment_method: selectedPaymentMethod
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    window.location.href = data.payment_url;
+                } else {
+                    alert('Payment initiation failed: ' + data.error);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
             }
-
-            planTotal.textContent = `Rs. ${selectedAmount}`;
-        }
-
-        document.addEventListener('DOMContentLoaded', function () {
-            // Initial setup
-            updateSummary();
-
-            // Payment method selection
-            const esewaRadio = document.getElementById('esewa');
-            const khaltiRadio = document.getElementById('khalti');
-            const esewaBtn = document.getElementById('esewa-btn');
-            const khaltiBtn = document.getElementById('khalti-btn');
-
-            esewaRadio.addEventListener('change', function () {
-                if (this.checked) {
-                    esewaBtn.classList.remove('hidden');
-                    khaltiBtn.classList.add('hidden');
-                }
-            });
-
-            khaltiRadio.addEventListener('change', function () {
-                if (this.checked) {
-                    khaltiBtn.classList.remove('hidden');
-                    esewaBtn.classList.add('hidden');
-                }
-            });
-
-            // Handle eSewa payment
-            esewaBtn.addEventListener('click', function () {
-                const esewaParams = {
-                    amt: selectedAmount,
-                    psc: 0,
-                    pdc: 0,
-                    txAmt: 0,
-                    tAmt: selectedAmount,
-                    pid: `SALAMANDER_${Date.now()}`,
-                    scd: 'EPAYTEST', // Your merchant code
-                    su: 'https://salamander.com/payment/success',
-                    fu: 'https://salamander.com/payment/failure'
-                };
-
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'https://uat.esewa.com.np/epay/main';
-
-                for (const key in esewaParams) {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = esewaParams[key];
-                    form.appendChild(input);
-                }
-
-                document.body.appendChild(form);
-                form.submit();
-            });
-
-            // Handle Khalti payment
-            khaltiBtn.addEventListener('click', async function () {
-                try {
-                    const response = await fetch('/api/payment/initiate', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            plan: selectedPlan,
-                            amount: selectedAmount
-                        })
-                    });
-
-                    const data = await response.json();
-                    if (data.status === 'success') {
-                        window.location.href = data.payment_url;
-                    } else {
-                        alert('Payment initiation failed: ' + data.error);
-                    }
-                } catch (error) {
-                    alert('An error occurred: ' + error.message);
-                }
-            });
         });
-    </script>
+    });
+});
+</script>
 </body>
 </html>

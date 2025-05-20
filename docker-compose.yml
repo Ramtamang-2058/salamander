@@ -1,0 +1,29 @@
+version: '3.3'
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - SQLALCHEMY_DATABASE_URI=postgresql://user:password@db:5432/salamander
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - KHALTI_SECRET_KEY=${KHALTI_SECRET_KEY}
+      - ESEWA_SECRET_KEY=${ESEWA_SECRET_KEY}
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=salamander
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+volumes:
+  postgres_data:
