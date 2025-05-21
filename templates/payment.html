@@ -239,10 +239,9 @@ function selectPlan(plan, amount) {
     document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('selected-plan'));
     document.querySelector(`[data-plan="${plan}"]`).classList.add('selected-plan');
 
-    // Update the hidden input inside the form
-    document.getElementById('plan-input').value = plan;
-
     // Update summary
+    selectedPlan = plan;
+    selectedAmount = amount;
     document.getElementById('plan-name').innerText = capitalize(plan);
     document.getElementById('plan-total').innerText = `Rs. ${amount}`;
     document.getElementById('plan-words').innerText = plan === 'basic' ? '10,000 words' : plan === 'premium' ? '25,000 words' : '60,000 words';
@@ -326,7 +325,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const data = await response.json();
                 if (data.status === 'success') {
-                    window.location.href = data.payment_url;
+                    if (selectedPaymentMethod === 'esewa') {
+                        // Create and submit eSewa form dynamically
+                        const form = document.createElement('form');
+                        form.method = data.method;
+                        form.action = data.payment_url;
+
+                        for (const [key, value] of Object.entries(data.form_data)) {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = key;
+                            input.value = value;
+                            form.appendChild(input);
+                        }
+
+                        document.body.appendChild(form);
+                        form.submit();
+                    } else {
+                        // For Khalti, redirect to payment_url
+                        window.location.href = data.payment_url;
+                    }
                 } else {
                     alert('Payment initiation failed: ' + data.error);
                 }
