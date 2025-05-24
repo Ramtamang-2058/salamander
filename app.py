@@ -2,14 +2,17 @@ import base64
 import functools
 import hashlib
 import hmac
+import json
 import logging
 import os
 import uuid
-import json
 from datetime import datetime, timedelta
-
+from models.domain import PaymentData
+from models.abstracts import PaymentMethod, PaymentPlan
+from payment.khalti_adapter import KhaltiPayment
+from models.abstracts import plan_details
 import requests
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 
@@ -36,7 +39,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
-
+payment_bp = Blueprint('payment', __name__)
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
 # Payment gateway configurations
@@ -119,6 +122,24 @@ def verify_esewa_signature(response_data, secret_key):
     except Exception as e:
         logger.error(f"Signature verification failed: {str(e)}", exc_info=True)
         return False
+
+
+def re_verify_payment(response_data, payment, payment_method: str) -> bool:
+    if payment_method == 'esewa':
+        try:
+            breakpoint()
+            total_amount = response_data.get('total_amount', '')
+            amount = int(float(total_amount.replace(',', '')))
+            transaction_uuid = response_data.get('transaction_uuid')
+            return payment.amount == amount and transaction_uuid == payment.pidx
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error parsing total_amount in eSewa verification: {e}")
+            return False
+    elif payment_method == 'khalti':
+        return False
+
+    logger.warning(f"Unsupported payment method: {payment_method}")
+    return False
 
 
 # Middleware to check authentication
@@ -267,7 +288,7 @@ def delete_history(humanizer_id):
 
 @app.route('/api/payment/initiate', methods=['POST'])
 @login_required
-@csrf.exempt  # Adjust based on client implementation
+@csrf.exempt
 def initiate_payment():
     try:
         data = request.get_json()
@@ -275,18 +296,10 @@ def initiate_payment():
         amount = data.get('amount')
         payment_method = data.get('payment_method', 'esewa')
 
-        # Validate plan and amount
-        plan_details = {
-            'basic': {'amount': 500, 'words': 10000, 'validity_days': 30, 'is_premium': False},
-            'premium': {'amount': 1000, 'words': 25000, 'validity_days': 60, 'is_premium': True},
-            'pro': {'amount': 2000, 'words': 60000, 'validity_days': 90, 'is_premium': True}
-        }
-
         if plan not in plan_details or plan_details[plan]['amount'] != amount:
             logger.warning(f"Invalid plan or amount: plan={plan}, amount={amount}")
             return jsonify({'error': 'Invalid plan or amount'}), 400
 
-        # Generate unique transaction UUID
         transaction_uuid = f"SALAMANDER_{uuid.uuid4().hex}"
 
         if payment_method == 'khalti':
@@ -411,7 +424,6 @@ def payment_callback():
             lookup_data = response.json()
 
             if response.status_code == 200 and lookup_data['status'] == 'Completed':
-                with db.session.begin():
                     update_payment(pidx, 'Completed', lookup_data.get('transaction_id'))
                     plan_details = {
                         'basic': {'words': 10000, 'validity_days': 30, 'is_premium': False},
@@ -425,8 +437,8 @@ def payment_callback():
                     user.subscription_expiry = datetime.utcnow() + timedelta(days=plan_details[plan]['validity_days'])
                     db.session.commit()
                     session['user']['is_premium'] = user.is_premium
-                logger.info(f"Khalti payment successful: pidx={pidx}")
-                return render_template('payment_success.html',
+                    logger.info(f"Khalti payment successful: pidx={pidx}")
+                    return render_template('payment_success.html',
                                        message='Payment successful! Your credits have been added.')
             else:
                 update_payment(pidx, lookup_data.get('status', 'Failed'))
@@ -446,9 +458,14 @@ def payment_callback():
                 logger.info(f"eSewa callback response: {response_data}")
 
                 # Verify signature
-                is_valid = verify_esewa_signature(response_data, ESEWA_SECRET_KEY)
+                verify_signature = verify_esewa_signature(response_data, ESEWA_SECRET_KEY)
+                payment_verify = re_verify_payment(
+                    response_data,
+                    payment_method='esewa',
+                    payment=payment,
+                )
+                if not verify_signature and not payment_verify:
 
-                if not is_valid:
                     logger.warning(f"eSewa signature verification failed: pidx={pidx}")
                     update_payment(pidx, 'SignatureInvalid')
                     return render_template('payment_failure.html', message='Payment verification failed')
@@ -482,7 +499,6 @@ def payment_callback():
 
             if response_data_api.get('status') == 'COMPLETE':
                 try:
-                    with db.session.begin():
                         update_payment(pidx, 'Completed', response_data_api.get('ref_id'))
                         plan_details = {
                             'basic': {'words': 10000, 'validity_days': 30, 'is_premium': False},
@@ -503,8 +519,8 @@ def payment_callback():
                         logger.info(
                             f"Updated user {user.uid}: word_credits={user.word_credits}, is_premium={user.is_premium}, expiry={user.subscription_expiry}")
 
-                    logger.info(f"eSewa payment successful: pidx={pidx}")
-                    return render_template('payment_success.html',
+                        logger.info(f"eSewa payment successful: pidx={pidx}")
+                        return render_template('payment_success.html',
                                            message='Payment successful! Your credits have been added.')
 
                 except Exception as e:

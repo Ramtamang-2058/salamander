@@ -1,6 +1,3 @@
-# Simple paraphraser module
-# In a production environment, you'd want to use a more sophisticated model
-# This is a placeholder implementation
 
 import time
 import random
@@ -59,3 +56,11 @@ def paraphrase_text(text, ultra_mode=False):
             words[i] = replacement + punctuation
 
     return ' '.join(words)
+
+
+class Humanize:
+    def __init__(self, input_text):
+        self.api_key = "API_KEY"
+    async def humanize(self, input_text):
+        output_text = ""
+        return output_text

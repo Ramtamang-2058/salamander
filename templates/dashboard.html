@@ -348,9 +348,11 @@
                     <div class="ml-3">
                         <p class="text-sm text-gray-300">Upgrade to Premium for advanced features and unlimited
                             usage.</p>
+                        <a href="/purchase">
                         <button class="mt-2 w-full px-3 py-2 text-sm font-medium text-white premium-badge rounded-md hover:opacity-90 btn">
                             Upgrade Now
                         </button>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -400,7 +402,7 @@
                     5000 words remaining
                 </div>
                 <a href="/purchase">
-                <button id="buyMoreBtn" class="buy-more-btn tooltip">
+                    <button class="buy-more-btn tooltip">
                     <i class="fas fa-cart-plus mr-1"></i> Buy More
                     <span class="tooltiptext">Purchase additional words</span>
                 </button>
@@ -611,14 +613,6 @@
         });
     });
 
-    // Buy More Words button
-    const buyMoreBtn = document.getElementById('buyMoreBtn');
-    buyMoreBtn.addEventListener('click', function () {
-        console.log('Buy More Words clicked');
-        alert('Redirecting to purchase page...');
-        // In production, redirect to purchase page
-        // window.location.href = '/purchase';
-    });
 
     // Humanize button
     humanizeBtn.addEventListener('click', function () {
