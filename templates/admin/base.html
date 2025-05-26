@@ -1,0 +1,109 @@
+
+<!-- templates/admin/base.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Admin Panel{% endblock %}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    {% if session.admin_id %}
+    <!-- Sidebar -->
+    <div class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 transform transition-transform duration-300 ease-in-out" id="sidebar">
+        <div class="flex items-center justify-center h-16 bg-gray-800">
+            <h1 class="text-white text-xl font-bold">Admin Panel</h1>
+        </div>
+        <nav class="mt-8">
+            <a href="{{ url_for('admin.dashboard') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-tachometer-alt mr-3"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('admin.users') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-users mr-3"></i>
+                Users
+            </a>
+            <a href="{{ url_for('admin.payments') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-credit-card mr-3"></i>
+                Payments
+            </a>
+            <a href="{{ url_for('admin.humanizations') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-robot mr-3"></i>
+                Humanizations
+            </a>
+            <a href="{{ url_for('admin.api_usage') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-chart-line mr-3"></i>
+                API Usage
+            </a>
+            <a href="{{ url_for('admin.logs') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-history mr-3"></i>
+                Activity Logs
+            </a>
+            {% if session.admin_role == 'super_admin' %}
+            <a href="{{ url_for('admin.admin_users') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-user-shield mr-3"></i>
+                Admin Users
+            </a>
+            {% endif %}
+            <a href="{{ url_for('admin.settings') }}" class="flex items-center px-6 py-3 text-gray-300 hover:bg-gray-700 hover:text-white">
+                <i class="fas fa-cog mr-3"></i>
+                Settings
+            </a>
+        </nav>
+        <div class="absolute bottom-0 w-full p-4">
+            <div class="text-gray-400 text-sm mb-2">
+                Logged in as: {{ session.admin_username }}
+            </div>
+            <a href="{{ url_for('admin.logout') }}" class="flex items-center px-4 py-2 text-red-400 hover:text-red-300">
+                <i class="fas fa-sign-out-alt mr-2"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="ml-64 flex flex-col flex-1">
+        <!-- Top Bar -->
+        <header class="bg-white shadow-md h-16 flex items-center justify-between px-6">
+            <h2 class="text-2xl font-semibold text-gray-800">{% block page_title %}Dashboard{% endblock %}</h2>
+            <div class="flex items-center space-x-4">
+                <span class="text-gray-600">{{ session.admin_username }}</span>
+                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-white text-sm"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="flex-1 p-6">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="mb-4 p-4 rounded-md {% if category == 'error' %}bg-red-100 border border-red-400 text-red-700{% else %}bg-green-100 border border-green-400 text-green-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    {% else %}
+    {% block login_content %}{% endblock %}
+    {% endif %}
+
+    <script>
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+    </script>
+</body>
+</html>

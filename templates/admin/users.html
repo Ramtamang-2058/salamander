@@ -1,0 +1,119 @@
+
+<!-- templates/admin/users.html -->
+{% extends "admin/base.html" %}
+
+{% block page_title %}Users{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-semibold text-gray-900">Users Management</h1>
+        <div class="flex space-x-2">
+            <form method="GET" class="flex">
+                <input type="text" name="search" value="{{ search }}" placeholder="Search users..."
+                       class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
+                    <i class="fas fa-search"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for user in users.items %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10">
+                            {% if user.picture %}
+                            <img class="h-10 w-10 rounded-full" src="{{ user.picture }}" alt="">
+                            {% else %}
+                            <div class="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center">
+                                <i class="fas fa-user text-white"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
+                            <div class="text-sm text-gray-500">{{ user.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    {% if user.is_premium %}
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Premium</span>
+                    {% else %}
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">Free</span>
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ user.word_credits }} words
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {{ user.created_at.strftime('%m/%d/%Y') }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <a href="{{ url_for('admin.user_detail', uid=user.uid) }}" class="text-blue-600 hover:text-blue-900 mr-3">View</a>
+                    <a href="{{ url_for('admin.edit_user', uid=user.uid) }}" class="text-green-600 hover:text-green-900 mr-3">Edit</a>
+                    <button onclick="togglePremium('{{ user.uid }}')" class="text-purple-600 hover:text-purple-900">
+                        {% if user.is_premium %}Downgrade{% else %}Upgrade{% endif %}
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="mt-6 flex justify-between items-center">
+    <div class="text-sm text-gray-700">
+        Showing {{ users.per_page * (users.page - 1) + 1 }} to {{ users.per_page * (users.page - 1) + users.items|length }} of {{ users.total }} users
+    </div>
+    <div class="flex space-x-2">
+        {% if users.has_prev %}
+        <a href="{{ url_for('admin.users', page=users.prev_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Previous</a>
+        {% endif %}
+        {% if users.has_next %}
+        <a href="{{ url_for('admin.users', page=users.next_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Next</a>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function togglePremium(uid) {
+    if (confirm('Are you sure you want to toggle this user\'s premium status?')) {
+        fetch(`/admin/api/user/${uid}/toggle-premium`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Activity Logs{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-semibold text-gray-900">Activity Logs</h1>
+        <form method="GET" class="flex">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search logs..."
+                   class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
+                <i class="fas fa-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for log in logs.items %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">{{ log.admin.username }}</div>
+                    <div class="text-sm text-gray-500">{{ log.admin.email }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.action }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.created_at.strftime('%m/%d/%Y %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="mt-6 flex justify-between items-center">
+    <div class="text-sm text-gray-700">
+        Showing {{ logs.per_page * (logs.page - 1) + 1 }} to {{ logs.per_page * (logs.page - 1) + logs.items|length }} of {{ logs.total }} logs
+    </div>
+    <div class="flex space-x-2">
+        {% if logs.has_prev %}
+        <a href="{{ url_for('admin.logs', page=logs.prev_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Previous</a>
+        {% endif %}
+        {% if logs.has_next %}
+        <a href="{{ url_for('admin.logs', page=logs.next_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

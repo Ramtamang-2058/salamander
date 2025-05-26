@@ -3,40 +3,36 @@ import functools
 import hashlib
 import hmac
 import json
-import logging
 import os
 import uuid
 from datetime import datetime, timedelta
-from models.domain import PaymentData
-from models.abstracts import PaymentMethod, PaymentPlan
-from payment.khalti_adapter import KhaltiPayment
-from models.abstracts import plan_details
+
 import requests
 from flask import Blueprint, Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 
+from auth.firebase_auth import AuthService
+from billing.billing_service import BillingService
+from billing.rate_limiter import RateLimiter
 from database.db_handler import db, Humanizer, User, Payment, save_user, save_humanizer, save_payment, update_payment
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Configure file handler for errors (don't show to users)
-error_handler = logging.FileHandler('error.log')
-error_handler.setLevel(logging.ERROR)
-error_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-error_handler.setFormatter(error_formatter)
-logger.addHandler(error_handler)
-
+from models.abstracts import plan_details
+from processor.humanizer import StealthGPTClient
+from utils.logger import logger
+from core.admin.views import admin_bp
+from core.admin.cli import register_admin_commands
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key')
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///db.sqlite3')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
 db.init_app(app)
+app.register_blueprint(admin_bp, url_prefix='/admin')
+
+# Register CLI commands
+register_admin_commands(app)
 migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
 payment_bp = Blueprint('payment', __name__)
@@ -54,11 +50,10 @@ ESEWA_TRANS_VERIFY_URL = f'{ESEWA_BASE_URL}/api/epay/transaction/status/'
 ESEWA_PRODUCT_CODE = os.environ.get('ESEWA_PRODUCT_CODE', 'EPAYTEST')
 ESEWA_SECRET_KEY = os.environ.get('ESEWA_SECRET_KEY', '8gBm/:&EnhH.1/q')
 
-
+billing_service = BillingService()
+auth_service = AuthService()
+rate_limiter = RateLimiter(max_requests=3, window_seconds=86400)
 # Placeholder for text processing
-def paraphrase_text(text, ultra_mode=False):
-    # Replace with actual implementation
-    return f"Paraphrased: {text}"
 
 
 # eSewa signature generation and verification
@@ -160,7 +155,10 @@ def index():
     if is_logged_in and user is None:
         session.clear()
         return redirect(url_for('login'))
-    return render_template('dashboard.html', user=user, is_logged_in=is_logged_in)
+    return render_template('dashboard.html',
+                           user=user,
+                           is_logged_in=is_logged_in,
+                           firebase_config=os.environ.get('FIREBASE_CONFIG', '{}'))
 
 
 @app.route('/login')
@@ -209,31 +207,96 @@ def purchase():
     return render_template('payment.html', user=user, is_logged_in=True)
 
 
-@app.route('/api/humanize', methods=['POST'])
+@app.route('/api/user', methods=['GET'])
 @login_required
-@csrf.exempt  # Adjust based on client implementation
+def get_user():
+    user = db.session.get(User, session['user']['uid'])
+    return jsonify({
+        'word_credits': user.word_credits,
+        'is_premium': user.is_premium
+    })
+
+
+@app.route('/api/humanize', methods=['POST'])
 def humanize_text():
     try:
         data = request.get_json()
-        text = data.get('text', '')
+        if not data:
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+
+        text = data.get('text', '').strip()
         ultra_mode = data.get('ultra_mode', False)
+
+        # Input validation
         if not text:
             return jsonify({'error': 'No text provided'}), 400
-        is_premium = session['user'].get('is_premium', False)
-        if ultra_mode and not is_premium:
-            return jsonify({'error': 'Ultra Mode requires a premium subscription'}), 403
-        result = paraphrase_text(text, ultra_mode=ultra_mode and is_premium)
-        save_humanizer(session['user']['uid'], text, result, ultra_mode=ultra_mode)
+        if len(text) > 10000:
+            return jsonify({'error': 'Text exceeds 10,000 character limit'}), 400
+        word_count = len(text.split())
+
+        user_id = session.get('user', {}).get('uid')
+        ip_address = request.remote_addr
+
+        if user_id:
+            # Authenticated user
+            user = db.session.get(User, user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+
+            # Check subscription and credits
+            if ultra_mode and not user.is_premium:
+                return jsonify({'error': 'Ultra mode requires a premium subscription'}), 403
+            if not user.is_premium and user.subscription_expiry and user.subscription_expiry < datetime.utcnow():
+                return jsonify({'error': 'Subscription expired'}), 403
+            if not user.is_premium and user.word_credits < word_count:
+                return jsonify({'error': 'Insufficient credits'}), 403
+
+            # Process humanization
+            result = client.paraphrase(text, user_id=user_id, ultra_mode=ultra_mode)
+            if 'error' in result:
+                return jsonify({'error': result['error']}), 500
+
+            # Update credits for non-premium users
+            if not user.is_premium:
+                try:
+                    user.word_credits -= word_count
+                    db.session.commit()
+                except SQLAlchemyError as e:
+                    db.session.rollback()
+                    logger.error(f"Failed to update credits for user {user_id}: {str(e)}")
+                    return jsonify({'error': 'Failed to update credits'}), 500
+
+            # Save result
+            try:
+                save_humanizer(user_id, text, result.get('response', ''), ultra_mode=ultra_mode)
+            except SQLAlchemyError as e:
+                logger.error(f"Failed to save humanizer result for user {user_id}: {str(e)}")
+                # Non-critical error, proceed with response
+        else:
+            # Non-authenticated user
+            if ultra_mode:
+                return jsonify({'error': 'Ultra mode requires login and premium subscription'}), 403
+            if word_count > 100:
+                return jsonify({'error': 'Free version limited to 100 words'}), 400
+            if not rate_limiter.allow_request(ip_address):
+                return jsonify({'error': 'Rate limit exceeded for free version'}), 429
+
+            result = client.paraphrase(text, user_id=None, ultra_mode=False)
+            if 'error' in result:
+                return jsonify({'error': result['error']}), 500
+
+        # Return response
         return jsonify({
-            'result': result,
+            'result': result.get('response', f"Paraphrased: {text}"),
             'stats': {
                 'readability': 'Excellent' if ultra_mode else 'Good',
-                'uniqueness': '97%' if ultra_mode else '85%',
+                'uniqueness': '97%' if ultra_mode else '85%'
             }
-        })
+        }), 200
+
     except Exception as e:
         logger.error(f"Humanize text failed: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Failed to process text'}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 @app.route('/api/history', methods=['GET'])
@@ -571,8 +634,16 @@ def bad_request_error(e):
     return render_template('error.html', message='Bad request', status_code=400), 400
 
 
-with app.app_context():
-    db.create_all()
+@app.teardown_request
+def teardown_request(exception=None):
+    try:
+        if exception:
+            db.session.rollback()
+        else:
+            db.session.commit()
+    finally:
+        db.session.remove()
+
 
 if __name__ == '__main__':
     app.run(debug=True)

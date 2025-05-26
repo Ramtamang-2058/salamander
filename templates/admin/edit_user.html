@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}Edit User{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto">
+    <div class="bg-white shadow rounded-lg p-6">
+        <h1 class="text-2xl font-semibold text-gray-900 mb-6">Edit User</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded-md {% if category == 'error' %}bg-red-100 border border-red-400 text-red-700{% else %}bg-green-100 border border-green-400 text-green-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="space-y-6">
+            <div>
+                <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" id="name" name="name" value="{{ user.name }}" required
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}" required
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div>
+                <label for="word_credits" class="block text-sm font-medium text-gray-700">Word Credits</label>
+                <input type="number" id="word_credits" name="word_credits" value="{{ user.word_credits }}"
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div>
+                <label for="is_premium" class="block text-sm font-medium text-gray-700">Premium Status</label>
+                <select id="is_premium" name="is_premium" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="true" {% if user.is_premium %}selected{% endif %}>Premium</option>
+                    <option value="false" {% if not user.is_premium %}selected{% endif %}>Free</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="subscription_expiry" class="block text-sm font-medium text-gray-700">Subscription Expiry (leave blank to keep unchanged)</label>
+                <input type="date" id="subscription_expiry" name="subscription_expiry" value="{{ user.subscription_expiry.strftime('%Y-%m-%d') if user.subscription_expiry else '' }}"
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div class="flex justify-end space-x-2">
+                <a href="{{ url_for('admin.user_detail', uid=user.uid) }}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    Cancel
+                </a>
+                <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Update User
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

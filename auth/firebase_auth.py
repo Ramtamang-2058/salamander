@@ -1,4 +1,5 @@
 # auth/firebase_auth.py
+
 import firebase_admin
 import pyrebase
 from firebase_admin import credentials, auth
@@ -33,3 +34,23 @@ def google_sign_in(id_token):
         profile = decoded_token.get('picture')
         return {"uid": uid, "email": email, "name": name, "profile": profile}
     return None
+
+
+class AuthService:
+    def __init__(self):
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_PATH)
+            firebase_admin.initialize_app(cred)
+
+    def verify_google_token(self, id_token: str) -> dict:
+        """Verify Firebase Google ID token and return user info."""
+        try:
+            decoded_token = auth.verify_id_token(id_token)
+            return {
+                'uid': decoded_token['uid'],
+                'name': decoded_token.get('name', 'Unknown User'),
+                'email': decoded_token.get('email', 'unknown@gmail.com'),
+                'picture': decoded_token.get('picture', '')
+            }
+        except Exception as e:
+            raise ValueError(f"Token verification failed: {str(e)}")

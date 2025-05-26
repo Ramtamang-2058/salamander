@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+
+{% block page_title %}API Usage{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-semibold text-gray-900">API Usage Logs</h1>
+        <form method="GET" class="flex">
+            <input type="text" name="search" value="{{ search }}" placeholder="Search API usage..."
+                   class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
+                <i class="fas fa-search"></i>
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Endpoint</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits Used</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+            {% for usage in api_usage.items %}
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-gray-900">{{ usage.user.name if usage.user else 'Guest' }}</div>
+                            <div class="text-sm text-gray-500">{{ usage.user.email if usage.user else '-' }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usage.endpoint }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ usage.credits_used }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ usage.created_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {% if usage.user %}
+                    <a href="{{ url_for('admin.user_detail', uid=usage.user_id) }}" class="text-blue-600 hover:text-blue-900">View User</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+<div class="mt-6 flex justify-between items-center">
+    <div class="text-sm text-gray-700">
+        Showing {{ api_usage.per_page * (api_usage.page - 1) + 1 }} to {{ api_usage.per_page * (api_usage.page - 1) + api_usage.items|length }} of {{ api_usage.total }} usage logs
+    </div>
+    <div class="flex space-x-2">
+        {% if api_usage.has_prev %}
+        <a href="{{ url_for('admin.api_usage', page=api_usage.prev_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Previous</a>
+        {% endif %}
+        {% if api_usage.has_next %}
+        <a href="{{ url_for('admin.api_usage', page=api_usage.next_num, search=search) }}" class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Next</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

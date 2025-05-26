@@ -3,256 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salamador - Text Humanizer</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Salamander - Text Humanizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.2/css/all.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --dark: #0f172a;
+            --darker: #020617;
+            --gray: #64748b;
+            --border: #334155;
+        }
+
         body {
-            overflow: hidden;
-            background-color: #121212;
-            color: #e0e0e0;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            font-family: 'Inter', sans-serif;
+            color: #e2e8f0;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .sidebar {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            z-index: 20;
         }
 
         .sidebar-collapsed {
             width: 60px;
-            transition: width 0.3s ease;
         }
 
         .sidebar-expanded {
             width: 280px;
-            transition: width 0.3s ease;
         }
 
-        .main-content-with-collapsed-sidebar {
+        .main-content {
+            transition: margin-left 0.3s ease;
+            width: 100%;
+        }
+
+        .main-content-collapsed {
             margin-left: 60px;
-            transition: margin-left 0.3s ease;
         }
 
-        .main-content-with-expanded-sidebar {
+        .main-content-expanded {
             margin-left: 280px;
-            transition: margin-left 0.3s ease;
         }
 
-        .chat-container {
+        .playground-container {
             height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            padding: 1.5rem;
         }
 
-        .typing-indicator span {
-            animation: blink 1.4s infinite both;
+        .panel {
+            flex: 1;
+            min-width: 0;
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
+        .panel textarea {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            transition: border-color 0.2s ease;
+            resize: none;
         }
 
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
+        .panel textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        @keyframes blink {
-            0% {
-                opacity: 0.1;
-            }
-            20% {
-                opacity: 1;
-            }
-            100% {
-                opacity: 0.1;
-            }
-        }
-
-        .text-editor {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-        }
-
-        .transition-all {
-            transition: all 0.3s ease;
-        }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
+        .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
-            height: 6px;
         }
 
-        ::-webkit-scrollbar-track {
-            background: #2d2d2d;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #555;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #64748b;
             border-radius: 3px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #777;
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
-        .premium-badge {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        .gradient-btn {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
         }
 
-        .dark-input {
-            background-color: #1e1e1e;
-            color: #e0e0e0;
-            border-color: #3d3d3d;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        .premium-btn {
+            background: linear-gradient(135deg, var(--warning), #f97316);
         }
 
-        .dark-input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-            outline: none;
+        .btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+
+        .sidebar-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
         }
 
         .tooltip {
             position: relative;
-            display: inline-block;
         }
 
         .tooltip .tooltiptext {
             visibility: hidden;
-            background-color: #333;
+            background-color: #334155;
             color: #fff;
             text-align: center;
             border-radius: 6px;
-            padding: 5px 10px;
+            padding: 6px 12px;
             position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
+            z-index: 10;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
             opacity: 0;
             transition: opacity 0.3s;
             white-space: nowrap;
         }
 
-        .tooltip:hover .tooltiptext {
+        .sidebar-collapsed .tooltip:hover .tooltiptext {
             visibility: visible;
             opacity: 1;
         }
 
-        .history-item {
-            transition: all 0.2s ease;
+        .notification {
+            animation: slideInRight 0.3s ease-out;
         }
 
-        .history-item:hover {
-            background-color: #2d2d2d;
-            transform: translateX(4px);
-        }
-
-        .pulse-animation {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
                 opacity: 1;
             }
-            50% {
-                opacity: 0.7;
+        }
+
+        .notification-exit {
+            animation: fadeOut 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
             }
-        }
-
-        .gradient-bg {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        }
-
-        .premium-gradient {
-            background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-        }
-
-        .sidebar-header {
-            height: 64px;
-            display: flex;
-            align-items: center;
-            padding: 0 16px;
-            border-bottom: 1px solid #2d2d2d;
-        }
-
-        .sidebar-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-        }
-
-        .history-container {
-            height: calc(100vh - 180px);
-            overflow-y: auto;
-        }
-
-        .btn {
-            transition: all 0.2s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-
-        .btn:active {
-            transform: translateY(1px);
+            to {
+                opacity: 0;
+            }
         }
 
         .ultra-toggle {
-            position: relative;
-            width: 44px;
-            height: 22px;
-            border-radius: 11px;
-            background-color: #3d3d3d;
+            width: 50px;
+            height: 26px;
+            border-radius: 13px;
+            background-color: #334155;
             transition: background-color 0.3s ease;
         }
 
         .ultra-toggle-dot {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
-            background-color: white;
+            background-color: #e2e8f0;
             transition: transform 0.3s ease;
+            margin: 2px;
         }
 
         .ultra-toggle.active {
-            background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+            background: linear-gradient(135deg, var(--warning), #f97316);
         }
 
         .ultra-toggle.active .ultra-toggle-dot {
-            transform: translateX(22px);
-        }
-
-        .panel-header {
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            border-bottom: 1px solid #2d2d2d;
-        }
-
-        .panel-footer {
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            border-top: 1px solid #2d2d2d;
-        }
-
-        .stats-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            background-color: #2d2d2d;
-            display: inline-flex;
-            align-items: center;
-            margin-right: 12px;
+            transform: translateX(24px);
         }
 
         .empty-state {
@@ -261,616 +228,674 @@
             align-items: center;
             justify-content: center;
             height: 100%;
-            color: #6b7280;
+            color: #64748b;
         }
 
-        .buy-more-btn {
-            padding: 4px 8px;
-            border-radius: 4px;
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            font-size: 0.75rem;
-            display: inline-flex;
-            align-items: center;
-            transition: all 0.2s ease;
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
         }
 
-        .buy-more-btn:hover {
-            background-color: #3d3d3d;
-            transform: translateY(-1px);
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
 
-        .buy-more-btn:active {
-            transform: translateY(1px);
+        .error-modal {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .text-center-important {
+            text-align: center !important;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+                transform: translateX(-100%);
+            }
+
+            .sidebar-collapsed {
+                transform: translateX(-100%);
+            }
+
+            .sidebar-expanded {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+            }
+
+            .main-content-collapsed,
+            .main-content-expanded {
+                margin-left: 0;
+            }
+
+            .playground-container {
+                flex-direction: column;
+                height: auto;
+                gap: 1rem;
+            }
+
+            .panel {
+                min-width: 100%;
+            }
         }
     </style>
 </head>
-<body class="font-sans">
-<!-- Sidebar -->
-<div id="sidebar" class="sidebar-collapsed fixed top-0 left-0 bg-gray-900 h-screen z-10 flex flex-col">
-    <!-- Sidebar Header -->
-    <div class="sidebar-header">
-        <div class="flex items-center">
-            <div class="sidebar-icon">S</div>
-            <h1 id="sidebarTitle" class="ml-3 text-lg font-medium text-white hidden">Salamador</h1>
-        </div>
-    </div>
+<body>
+<!-- Notification Container -->
+<div id="notification-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
-    <!-- Sidebar Content -->
-    <div class="flex-1 overflow-hidden flex flex-col">
-        <!-- Toggle button -->
-        <div class="px-4 py-3 flex items-center justify-between">
-            <span id="historyLabel" class="text-gray-400 text-sm font-medium hidden">History</span>
-            <button id="toggleSidebar" class="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-800">
-                <i id="sidebarIcon" class="fas fa-chevron-right"></i>
+<!-- Sidebar -->
+<aside id="sidebar" class="sidebar sidebar-collapsed flex flex-col">
+    <div class="h-16 flex items-center px-4 border-b border-slate-700">
+        <div class="flex items-center w-full">
+            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                S
+            </div>
+            <div id="logo-text" class="ml-3 hidden">
+                <h1 class="text-lg font-semibold text-white">Salamander</h1>
+                <p class="text-xs text-slate-400">Text Humanizer</p>
+            </div>
+            </div>
+        </div>
+
+    <nav class="flex-1 px-4 py-3 space-y-2">
+        <div id="nav-expanded" class="hidden">
+            <a href="/" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg">
+                <i class="fas fa-magic"></i>
+                <span class="nav-text">Humanizer</span>
+            </a>
+            <a href="/history" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                    <i class="fas fa-history"></i>
+                <span class="nav-text">History</span>
+            </a>
+            <a href="/purchase" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg">
+                <i class="fas fa-crown"></i>
+                <span class="nav-text">Upgrade</span>
+            </a>
+            </div>
+        <div id="nav-collapsed" class="flex flex-col items-center space-y-4">
+            <a href="/" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 tooltip">
+                <i class="fas fa-magic"></i>
+                <span class="tooltiptext">Humanizer</span>
+            </a>
+            <a href="/history" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 tooltip">
+                <i class="fas fa-history"></i>
+                <span class="tooltiptext">History</span>
+            </a>
+            <a href="/purchase" class="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 tooltip">
+                <i class="fas fa-crown"></i>
+                <span class="tooltiptext">Upgrade</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="border-t border-slate-700 p-4">
+        <div id="user-expanded" class="hidden">
+            <div class="flex items-center space-x-3 p-3 rounded-lg hover:bg-slate-700">
+                <div id="user-avatar"
+                     class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white">
+                    <span id="user-initial">G</span>
+                </div>
+                <div class="flex-1">
+                    <p id="user-name" class="text-sm font-medium text-white truncate">Guest</p>
+                    <p id="user-plan" class="text-xs text-slate-400">Free Plan</p>
+                </div>
+            </div>
+            <button id="auth-button"
+                    class="w-full mt-2 px-3 py-2 text-sm text-indigo-400 hover:text-indigo-300 text-center-important">
+                Log In
             </button>
         </div>
-
-        <!-- Search input - only visible when expanded -->
-        <div id="searchContainer" class="px-4 pb-3 hidden">
-            <div class="relative">
-                <input
-                        id="historySearch"
-                        type="text"
-                        placeholder="Search history..."
-                        class="w-full px-3 py-2 pl-9 text-sm text-gray-300 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:border-indigo-500"
-                />
-                <i class="fas fa-search absolute left-3 top-2.5 text-gray-500 text-sm"></i>
-            </div>
-        </div>
-
-        <!-- History items -->
-        <div class="flex-1 overflow-hidden">
-            <!-- Icon view when collapsed -->
-            <div id="collapsedView" class="flex flex-col items-center py-4">
-                <button class="text-gray-400 hover:text-white mb-4 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-800">
-                    <i class="fas fa-history"></i>
-                </button>
-            </div>
-
-            <!-- List view when expanded -->
-            <div id="expandedView" class="hidden px-3 history-container">
-                <ul id="historyList" class="space-y-1">
-                    <!-- History items will be populated dynamically -->
-                </ul>
-                <button id="loadMoreBtn"
-                        class="mt-4 w-full px-3 py-2 text-sm text-gray-300 bg-gray-800 rounded-md hover:bg-gray-700 hidden">
-                    Load More
-                </button>
-            </div>
-        </div>
-
-        <!-- Premium banner - only visible when expanded -->
-        <div id="premiumBanner" class="p-4 hidden">
-            <div class="bg-gray-800 rounded-lg p-3">
-                <div class="flex items-start">
-                    <i class="fas fa-crown text-yellow-500 mt-1"></i>
-                    <div class="ml-3">
-                        <p class="text-sm text-gray-300">Upgrade to Premium for advanced features and unlimited
-                            usage.</p>
-                        <a href="/purchase">
-                        <button class="mt-2 w-full px-3 py-2 text-sm font-medium text-white premium-badge rounded-md hover:opacity-90 btn">
-                            Upgrade Now
-                        </button>
-                        </a>
-                    </div>
-                </div>
+        <div id="user-collapsed" class="flex justify-center">
+            <div id="user-avatar-collapsed"
+                 class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white">
+                <span id="user-initial-collapsed">G</span>
             </div>
         </div>
     </div>
+</aside>
 
-    <!-- User profile at bottom -->
-    <div class="border-t border-gray-700 p-3">
-        <div class="flex items-center">
-            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-                <span>G</span>
+<!-- Main Content -->
+<div id="main-content" class="main-content main-content-collapsed flex flex-col">
+    <header class="h-16 bg-slate-800 flex items-center px-6 shadow-md">
+        <div class="flex items-center flex-1">
+            <button id="mobile-menu-btn"
+                    class="mr-4 text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 md:hidden">
+                <i class="fas fa-bars"></i>
+            </button>
+            <button id="toggle-sidebar"
+                    class="mr-4 text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 hidden md:block">
+                <i id="sidebar-icon" class="fas fa-chevron-right"></i>
+            </button>
+            <div class="flex-1 text-center">
+                <h1 class="text-lg font-semibold text-white">Text Humanizer</h1>
+                <p class="text-xs text-slate-400">Transform AI text into natural, human-like content</p>
             </div>
-            <div id="userInfo" class="ml-3 hidden">
-                <div class="flex items-center">
-                    <span class="text-white text-sm">Guest</span>
-                </div>
-                <a href="/login">
-                    <button  class="text-xs text-indigo-400 hover:text-indigo-300">Log in</button>
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Main content -->
-<div id="mainContent" class="main-content-with-collapsed-sidebar">
-    <!-- Header -->
-    <header class="bg-gray-800 shadow-md h-16 flex items-center px-6">
-        <div class="flex-1 flex items-center">
-            <h1 class="text-lg font-semibold text-white">Salamador <span
-                    class="text-sm text-gray-400">Text Humanizer</span></h1>
         </div>
         <div class="flex items-center space-x-6">
-            <!-- Toggle Ultra Mode -->
-            <div class="flex items-center">
-                <span class="mr-3 text-sm text-gray-300">Ultra Mode</span>
-                <div id="ultraToggleContainer" class="ultra-toggle">
+            <div class="flex items-center space-x-3">
+                <span class="text-sm text-slate-300 text-center-important">Ultra Mode</span>
+                <div id="ultra-toggle-container" class="ultra-toggle">
                     <div class="ultra-toggle-dot"></div>
                 </div>
-                <input type="checkbox" id="ultraToggle" class="sr-only">
+                <input type="checkbox" id="ultra-toggle" class="sr-only">
             </div>
-
-            <!-- Credits -->
-            <div class="flex items-center space-x-2">
-                <div id="remainingCredits" class="text-gray-300 text-sm">
-                    <i class="fas fa-coins mr-1 text-yellow-400"></i>
-                    5000 words remaining
+            <div class="flex items-center space-x-3">
+                <div id="credits-display"
+                     class="px-3 py-1 bg-slate-700 rounded-md flex items-center space-x-2 justify-center">
+                    <i class="fas fa-coins text-yellow-400"></i>
+                    <span id="credits-count" class="text-sm text-center-important">0 words</span>
                 </div>
-                <a href="/purchase">
-                    <button class="buy-more-btn tooltip">
-                    <i class="fas fa-cart-plus mr-1"></i> Buy More
-                    <span class="tooltiptext">Purchase additional words</span>
-                </button>
+                <a href="/purchase" class="tooltip">
+                    <button class="btn px-3 py-1 text-sm text-white premium-btn rounded-md">
+                        <i class="fas fa-cart-plus mr-1"></i> Buy More
+                        <span class="tooltiptext">Purchase additional words</span>
+                    </button>
                 </a>
             </div>
-
-            <!-- User info/login -->
-            <a href="/login">
-            <button class="text-gray-300 hover:text-white px-3 py-1 text-sm">
-                Login
-            </button>
-            </a>
+            <div id="header-user-actions">
+                <button id="header-login-btn"
+                        class="text-slate-300 hover:text-white px-3 py-1 text-sm text-center-important">
+                    Log In
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- Content area with split panels -->
-    <div class="flex chat-container">
-        <!-- Input panel -->
-        <div class="w-1/2 border-r border-gray-700 flex flex-col bg-gray-900">
-            <div class="panel-header">
-                <div class="text-sm text-gray-400">Input Text</div>
-                <div class="text-sm text-gray-400"><span id="inputCharCount">0</span> characters</div>
+    <div class="playground-container">
+        <div class="panel">
+            <div class="h-14 flex items-center justify-between px-4 border-b border-slate-700">
+                <h3 class="text-sm font-semibold text-white flex items-center">
+                    <i class="fas fa-edit mr-2 text-blue-400"></i> Input Text
+                </h3>
+                <div class="flex items-center space-x-4">
+                    <span id="input-word-count" class="text-sm text-slate-400 text-center-important">0 words</span>
+                    <button id="paste-btn"
+                            class="text-slate-400 hover:text-blue-400 p-1 rounded-full hover:bg-slate-700 tooltip">
+                        <i class="fas fa-clipboard"></i>
+                        <span class="tooltiptext">Paste from clipboard</span>
+                    </button>
+                </div>
             </div>
             <div class="flex-1 p-4">
-                <textarea
-                        id="inputText"
-                        class="w-full h-full p-4 text-editor dark-input rounded-md resize-none"
-                        placeholder="Paste your text here to humanize it..."
-                ></textarea>
+                    <textarea
+                            id="input-text"
+                            class="w-full h-full p-4 rounded-lg custom-scrollbar"
+                            placeholder="Paste your AI-generated text here..."
+                    ></textarea>
             </div>
-            <!-- Action buttons -->
-            <div class="panel-footer">
-                <button id="clearBtn" class="px-3 py-1 text-sm text-gray-400 hover:text-white flex items-center btn">
+            <div class="h-16 flex items-center justify-between px-4 border-t border-slate-700">
+                <button id="clear-btn"
+                        class="btn px-3 py-1 text-sm text-slate-400 hover:text-white flex items-center hover:bg-slate-700 rounded-md">
                     <i class="fas fa-trash-alt mr-1"></i> Clear
                 </button>
-                <button
-                        id="humanizeBtn"
-                        class="px-6 py-2 rounded-md font-medium text-white gradient-bg hover:opacity-90 btn"
-                >
-                    <i class="fas fa-magic mr-2"></i> Humanize Text
+                <button id="humanize-btn" class="btn px-6 py-2 text-sm font-medium text-white gradient-btn rounded-md">
+                    <i class="fas fa-magic mr-2"></i> Humanize
                 </button>
             </div>
         </div>
 
-        <!-- Output panel -->
-        <div class="w-1/2 flex flex-col bg-gray-800">
-            <div class="panel-header">
-                <div class="text-sm text-gray-400">Humanized Output</div>
-                <div class="flex items-center">
-                    <div class="text-sm text-gray-400 mr-3"><span id="outputCharCount">0</span> characters</div>
-                    <button id="copyBtn"
-                            class="text-gray-400 hover:text-white tooltip p-1 rounded-full hover:bg-gray-700" disabled>
+        <div class="panel">
+            <div class="h-14 flex items-center justify-between px-4 border-b border-slate-700">
+                <h3 class="text-sm font-semibold text-white flex items-center">
+                    <i class="fas fa-check-circle mr-2 text-green-400"></i> Humanized Output
+                </h3>
+                <div class="flex items-center space-x-4">
+                    <span id="output-word-count" class="text-sm text-slate-400 text-center-important">0 words</span>
+                    <button id="copy-btn"
+                            class="text-slate-400 hover:text-green-400 p-1 rounded-full hover:bg-slate-700 tooltip"
+                            disabled>
                         <i class="far fa-copy"></i>
                         <span class="tooltiptext">Copy to clipboard</span>
                     </button>
                 </div>
             </div>
-            <div id="outputContainer" class="flex-1 p-4 overflow-auto">
-                <div id="outputText" class="w-full h-full p-4 dark-input rounded-md text-gray-300 text-editor">
-                    <!-- Empty state -->
+            <div id="output-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                <div id="output-text" class="w-full h-full p-4 bg-slate-700 rounded-lg text-slate-200">
                     <div class="empty-state">
-                        <i class="fas fa-spell-check text-4xl mb-3"></i>
-                        <p class="text-center">Humanized text will appear here</p>
-                        <p class="text-sm mt-2 text-center">Start by pasting your text in the left panel</p>
+                        <i class="fas fa-robot text-3xl mb-3"></i>
+                        <p>Your humanized text will appear here</p>
+                        <p class="text-sm mt-1">Start by entering text in the input panel</p>
                     </div>
                 </div>
             </div>
-            <!-- Stats and metadata -->
-            <div class="panel-footer">
-                <div class="flex items-center">
-                    <div class="stats-badge">
-                        <i class="fas fa-lightbulb mr-1 text-yellow-500"></i>
-                        <span class="text-xs">Readability: <span id="readabilityScore"
-                                                                 class="text-white">-</span></span>
+            <div class="h-16 flex items-center justify-between px-4 border-t border-slate-700">
+                <div class="flex items-center space-x-3">
+                    <div class="px-2 py-1 text-xs bg-slate-700 rounded-md">
+                        <i class="fas fa-brain mr-1 text-purple-400"></i>
+                        Readability: <span id="readability-score">-</span>
                     </div>
-                    <div class="stats-badge">
+                    <div class="px-2 py-1 text-xs bg-slate-700 rounded-md">
                         <i class="fas fa-fingerprint mr-1 text-blue-400"></i>
-                        <span class="text-xs">Uniqueness: <span id="uniquenessScore" class="text-white">-</span></span>
+                        Uniqueness: <span id="uniqueness-score">-</span>
                     </div>
                 </div>
-                <div class="text-xs text-gray-400">
-                    Last updated: <span id="lastUpdated">Never</span>
+                <span class="text-xs text-slate-400">Last updated: <span id="last-updated">Never</span></span>
                 </div>
             </div>
         </div>
     </div>
+
+<!-- Error Modal -->
+<div id="error-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="error-modal rounded-lg p-6 max-w-md w-full">
+        <div class="flex items-center mb-4">
+            <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+            <h2 class="text-lg font-semibold text-white">Error</h2>
+        </div>
+        <p id="error-message" class="text-slate-300 mb-6"></p>
+        <div class="flex justify-end space-x-3">
+            <button id="error-close-btn"
+                    class="px-4 py-2 text-sm text-slate-300 bg-slate-700 rounded-md hover:bg-slate-600">
+                Close
+            </button>
+            <a id="error-action-btn" href="#"
+               class="px-4 py-2 text-sm text-white bg-indigo-600 rounded-md hover:bg-indigo-500 hidden">
+                Take Action
+            </a>
+            </div>
+    </div>
 </div>
 
 <script>
-    // Sidebar toggle functionality
-    const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('mainContent');
-    const toggleBtn = document.getElementById('toggleSidebar');
-    const sidebarIcon = document.getElementById('sidebarIcon');
-    const sidebarTitle = document.getElementById('sidebarTitle');
-    const historyLabel = document.getElementById('historyLabel');
-    const collapsedView = document.getElementById('collapsedView');
-    const expandedView = document.getElementById('expandedView');
-    const searchContainer = document.getElementById('searchContainer');
-    const premiumBanner = document.getElementById('premiumBanner');
-    const userInfo = document.getElementById('userInfo');
+    // Firebase Configuration
+    const firebaseConfig = JSON.parse('{{ firebase_config | safe }}');
+    firebase.initializeApp(firebaseConfig);
 
-    toggleBtn.addEventListener('click', function () {
-        if (sidebar.classList.contains('sidebar-collapsed')) {
-            sidebar.classList.remove('sidebar-collapsed');
-            sidebar.classList.add('sidebar-expanded');
-            mainContent.classList.remove('main-content-with-collapsed-sidebar');
-            mainContent.classList.add('main-content-with-expanded-sidebar');
-            sidebarIcon.classList.remove('fa-chevron-right');
-            sidebarIcon.classList.add('fa-chevron-left');
-            sidebarTitle.classList.remove('hidden');
-            historyLabel.classList.remove('hidden');
-            collapsedView.classList.add('hidden');
-            expandedView.classList.remove('hidden');
-            searchContainer.classList.remove('hidden');
-            premiumBanner.classList.remove('hidden');
-            userInfo.classList.remove('hidden');
-        } else {
-            sidebar.classList.remove('sidebar-expanded');
-            sidebar.classList.add('sidebar-collapsed');
-            mainContent.classList.remove('main-content-with-expanded-sidebar');
-            mainContent.classList.add('main-content-with-collapsed-sidebar');
-            sidebarIcon.classList.remove('fa-chevron-left');
-            sidebarIcon.classList.add('fa-chevron-right');
-            sidebarTitle.classList.add('hidden');
-            historyLabel.classList.add('hidden');
-            collapsedView.classList.remove('hidden');
-            expandedView.classList.add('hidden');
-            searchContainer.classList.add('hidden');
-            premiumBanner.classList.add('hidden');
-            userInfo.classList.add('hidden');
-        }
-    });
+    // DOM Elements
+    const elements = {
+        sidebar: document.getElementById('sidebar'),
+        toggleSidebarBtn: document.getElementById('toggle-sidebar'),
+        mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+        sidebarIcon: document.getElementById('sidebar-icon'),
+        logoText: document.getElementById('logo-text'),
+        navExpanded: document.getElementById('nav-expanded'),
+        navCollapsed: document.getElementById('nav-collapsed'),
+        userExpanded: document.getElementById('user-expanded'),
+        userCollapsed: document.getElementById('user-collapsed'),
+        mainContent: document.getElementById('main-content'),
+        ultraToggle: document.getElementById('ultra-toggle'),
+        ultraToggleContainer: document.getElementById('ultra-toggle-container'),
+        humanizeBtn: document.getElementById('humanize-btn'),
+        inputText: document.getElementById('input-text'),
+        inputWordCount: document.getElementById('input-word-count'),
+        outputText: document.getElementById('output-text'),
+        outputWordCount: document.getElementById('output-word-count'),
+        copyBtn: document.getElementById('copy-btn'),
+        clearBtn: document.getElementById('clear-btn'),
+        pasteBtn: document.getElementById('paste-btn'),
+        readabilityScore: document.getElementById('readability-score'),
+        uniquenessScore: document.getElementById('uniqueness-score'),
+        lastUpdated: document.getElementById('last-updated'),
+        creditsDisplay: document.getElementById('credits-display'),
+        creditsCount: document.getElementById('credits-count'),
+        userName: document.getElementById('user-name'),
+        userPlan: document.getElementById('user-plan'),
+        userAvatar: document.getElementById('user-avatar'),
+        userInitial: document.getElementById('user-initial'),
+        userAvatarCollapsed: document.getElementById('user-avatar-collapsed'),
+        userInitialCollapsed: document.getElementById('user-initial-collapsed'),
+        authButton: document.getElementById('auth-button'),
+        headerUserActions: document.getElementById('header-user-actions'),
+        notificationContainer: document.getElementById('notification-container'),
+        errorModal: document.getElementById('error-modal'),
+        errorMessage: document.getElementById('error-message'),
+        errorCloseBtn: document.getElementById('error-close-btn'),
+        errorActionBtn: document.getElementById('error-action-btn')
+    };
 
-    // Toggle Ultra Mode
-    const ultraToggle = document.getElementById('ultraToggle');
-    const ultraToggleContainer = document.getElementById('ultraToggleContainer');
-    const humanizeBtn = document.getElementById('humanizeBtn');
+    // State
+    let user = null;
+    let isSidebarOpen = false;
 
-    ultraToggleContainer.addEventListener('click', function () {
-        ultraToggle.checked = !ultraToggle.checked;
-        updateUltraMode();
-    });
-
-    function updateUltraMode() {
-        if (ultraToggle.checked) {
-            ultraToggleContainer.classList.add('active');
-            humanizeBtn.classList.remove('gradient-bg');
-            humanizeBtn.classList.add('premium-gradient');
-            humanizeBtn.innerHTML = '<i class="fas fa-bolt mr-2"></i> Ultra Humanize';
-        } else {
-            ultraToggleContainer.classList.remove('active');
-            humanizeBtn.classList.add('gradient-bg');
-            humanizeBtn.classList.remove('premium-gradient');
-            humanizeBtn.innerHTML = '<i class="fas fa-magic mr-2"></i> Humanize Text';
-        }
+    // Sidebar Toggle
+    function toggleSidebar() {
+        isSidebarOpen = !isSidebarOpen;
+        elements.sidebar.classList.toggle('sidebar-collapsed', !isSidebarOpen);
+        elements.sidebar.classList.toggle('sidebar-expanded', isSidebarOpen);
+        elements.mainContent.classList.toggle('main-content-collapsed', !isSidebarOpen);
+        elements.mainContent.classList.toggle('main-content-expanded', isSidebarOpen);
+        elements.sidebarIcon.classList.toggle('fa-chevron-right', !isSidebarOpen);
+        elements.sidebarIcon.classList.toggle('fa-chevron-left', isSidebarOpen);
+        elements.logoText.classList.toggle('hidden', !isSidebarOpen);
+        elements.navExpanded.classList.toggle('hidden', !isSidebarOpen);
+        elements.navCollapsed.classList.toggle('hidden', isSidebarOpen);
+        elements.userExpanded.classList.toggle('hidden', !isSidebarOpen);
+        elements.userCollapsed.classList.toggle('hidden', isSidebarOpen);
     }
 
-    // Input character count
-    const inputText = document.getElementById('inputText');
-    const inputCharCount = document.getElementById('inputCharCount');
+    elements.toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    elements.mobileMenuBtn.addEventListener('click', toggleSidebar);
 
-    inputText.addEventListener('input', function () {
-        inputCharCount.textContent = this.value.length;
+    // Auto-close sidebar on mobile when clicking outside
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 768 && isSidebarOpen && !elements.sidebar.contains(e.target) && !elements.mobileMenuBtn.contains(e.target)) {
+            toggleSidebar();
+        }
     });
 
-    // Clear button
-    const clearBtn = document.getElementById('clearBtn');
-    const outputContainer = document.getElementById('outputContainer');
-    const outputText = document.getElementById('outputText');
-    const outputCharCount = document.getElementById('outputCharCount');
-    const readabilityScore = document.getElementById('readabilityScore');
-    const uniquenessScore = document.getElementById('uniquenessScore');
-    const copyBtn = document.getElementById('copyBtn');
-    const lastUpdated = document.getElementById('lastUpdated');
-
-    clearBtn.addEventListener('click', function () {
-        inputText.value = '';
-        inputCharCount.textContent = '0';
-        outputText.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-spell-check text-4xl mb-3"></i>
-                <p class="text-center">Humanized text will appear here</p>
-                <p class="text-sm mt-2 text-center">Start by pasting your text in the left panel</p>
-            </div>
-        `;
-        outputCharCount.textContent = '0';
-        readabilityScore.textContent = '-';
-        uniquenessScore.textContent = '-';
-        lastUpdated.textContent = 'Never';
-        copyBtn.disabled = true;
-    });
-
-    // Copy button
-    copyBtn.addEventListener('click', function () {
-        if (outputText.querySelector('.empty-state')) {
+    // Ultra Mode Toggle
+    elements.ultraToggleContainer.addEventListener('click', () => {
+        if (user && !user.is_premium && !elements.ultraToggle.checked) {
+            showError('Ultra Mode is a premium feature. Upgrade your plan to use it.', '/purchase');
             return;
         }
+        elements.ultraToggle.checked = !elements.ultraToggle.checked;
+        elements.ultraToggleContainer.classList.toggle('active', elements.ultraToggle.checked);
+        elements.humanizeBtn.classList.toggle('gradient-btn', !elements.ultraToggle.checked);
+        elements.humanizeBtn.classList.toggle('premium-btn', elements.ultraToggle.checked);
+        elements.humanizeBtn.innerHTML = elements.ultraToggle.checked
+            ? '<i class="fas fa-bolt mr-2"></i> Ultra Humanize'
+            : '<i class="fas fa-magic mr-2"></i> Humanize';
+    });
 
-        const outputContent = outputText.innerText;
-        navigator.clipboard.writeText(outputContent).then(() => {
-            const tooltipText = copyBtn.querySelector('.tooltiptext');
+    // Input Word Count
+    elements.inputText.addEventListener('input', () => {
+        const words = elements.inputText.value.trim().split(/\s+/).filter(w => w).length;
+        elements.inputWordCount.textContent = `${words} words`;
+    });
+
+    // Clear Button
+    elements.clearBtn.addEventListener('click', () => {
+        elements.inputText.value = '';
+        elements.inputWordCount.textContent = '0 words';
+        resetOutput();
+    });
+
+    // Paste Button
+    elements.pasteBtn.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            elements.inputText.value = text;
+            const words = text.trim().split(/\s+/).filter(w => w).length;
+            elements.inputWordCount.textContent = `${words} words`;
+            showNotification('Text pasted from clipboard!', 'success');
+        } catch (error) {
+            showError('Failed to paste from clipboard.');
+        }
+    });
+
+    // Copy Button
+    elements.copyBtn.addEventListener('click', async () => {
+        if (elements.outputText.querySelector('.empty-state')) return;
+        try {
+            await navigator.clipboard.writeText(elements.outputText.innerText);
+            const tooltipText = elements.copyBtn.querySelector('.tooltiptext');
             const originalText = tooltipText.innerText;
             tooltipText.innerText = 'Copied!';
             setTimeout(() => {
                 tooltipText.innerText = originalText;
             }, 2000);
-        });
+            showNotification('Text copied to clipboard!', 'success');
+        } catch (error) {
+            showError('Failed to copy text.');
+        }
     });
 
-
-    // Humanize button
-    humanizeBtn.addEventListener('click', function () {
-        const text = inputText.value.trim();
+    // Humanize Button
+    elements.humanizeBtn.addEventListener('click', async () => {
+        const text = elements.inputText.value.trim();
         if (!text) {
-            outputText.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-spell-check text-4xl mb-3"></i>
-                    <p class="text-center">Humanized text will appear here</p>
-                    <p class="text-sm mt-2 text-center">Start by pasting your text in the left panel</p>
-                </div>
-            `;
-            outputCharCount.textContent = '0';
-            copyBtn.disabled = true;
+            showError('Please enter text to humanize.');
+            return;
+        }
+        if (!user && text.split(/\s+/).filter(w => w).length > 100) {
+            showError('Free users are limited to 100 words per request. Log in or upgrade for more.', '/login');
             return;
         }
 
-        outputText.innerHTML = `
-            <div class="flex items-center justify-center h-full">
-                <div class="text-center">
-                    <div class="inline-block mb-3">
-                        <svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                    <p class="text-gray-400">Humanizing your text...</p>
+        elements.outputText.innerHTML = `
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-indigo-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Humanizing...</span>
                 </div>
-            </div>
-        `;
+            `;
+        elements.humanizeBtn.disabled = true;
+        elements.copyBtn.disabled = true;
 
-        humanizeBtn.disabled = true;
-        const ultraMode = ultraToggle.checked;
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-        // Simulate API call (replace with actual fetch in production)
-        setTimeout(() => {
-            const result = simulateHumanizing(text, ultraMode);
+            const response = await fetch('/api/humanize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken  // <-- CSRF token added here
+                },
+                body: JSON.stringify({text, ultra_mode: elements.ultraToggle.checked})
+            });
+            const data = await response.json();
 
-            outputText.innerText = result.text;
-            outputCharCount.textContent = result.text.length;
-            readabilityScore.textContent = result.stats.readability;
-            uniquenessScore.textContent = result.stats.uniqueness;
-            lastUpdated.textContent = new Date().toLocaleTimeString();
-            copyBtn.disabled = false;
-
-            const remainingCredits = document.getElementById('remainingCredits');
-            if (!remainingCredits.textContent.includes('Unlimited')) {
-                const usedCredits = Math.ceil(text.length / 10);
-                const currentCredits = parseInt(remainingCredits.textContent.match(/\d+/)[0]);
-                const newCredits = Math.max(0, currentCredits - usedCredits);
-                remainingCredits.innerHTML = `<i class="fas fa-coins mr-1 text-yellow-400"></i>${newCredits} words remaining`;
-                buyMoreBtn.classList.toggle('hidden', newCredits > 0);
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to humanize text');
             }
 
-            // Refresh history after humanizing
-            loadHistory();
-            humanizeBtn.disabled = false;
-        }, 1500);
+            elements.outputText.innerHTML = `<div class="fade-in">${data.result}</div>`;
+            const outputWords = data.result.split(/\s+/).filter(w => w).length;
+            elements.outputWordCount.textContent = `${outputWords} words`;
+            elements.readabilityScore.textContent = data.stats.readability;
+            elements.uniquenessScore.textContent = data.stats.uniqueness;
+            elements.lastUpdated.textContent = new Date().toLocaleString();
+            elements.copyBtn.disabled = false;
+            if (user) {
+                await updateCredits();
+            }
+            showNotification('Text humanized successfully!', 'success');
+        } catch (error) {
+            const message = error.message.includes('Insufficient credits') ?
+                'You don’t have enough credits. Purchase more to continue.' :
+                error.message.includes('expired') ?
+                    'Your subscription has expired. Renew to continue.' :
+                    error.message;
+            const actionUrl = error.message.includes('credits') || error.message.includes('expired') ? '/purchase' : null;
+            showError(message, actionUrl);
+            resetOutput();
+        } finally {
+            elements.humanizeBtn.disabled = false;
+            }
     });
 
-    // History management
-    let currentPage = 1;
-    let searchQuery = '';
-
-    function loadHistory(page = 1, append = false) {
-        const historyList = document.getElementById('historyList');
-        const loadMoreBtn = document.getElementById('loadMoreBtn');
-
-        // Simulate API call for history (replace with actual fetch in production)
-        setTimeout(() => {
-            const data = simulateHistoryData(page, searchQuery);
-
-            if (!append) {
-                historyList.innerHTML = '';
-            }
-
-            if (data.history && data.history.length > 0) {
-                data.history.forEach(item => {
-                    const li = document.createElement('li');
-                    li.className = 'history-item rounded-md p-2 flex justify-between items-center';
-                    li.innerHTML = `
-                        <div class="flex-1 truncate pr-2">
-                            <a href="#" class="text-gray-300 hover:text-white block truncate" data-id="${item.id}">
-                                ${item.title}
-                                ${item.ultra_mode ? '<span class="text-xs text-orange-400 ml-1">[Ultra]</span>' : ''}
-                            </a>
-                            <p class="text-gray-500 text-xs">${item.created_at} • ${item.word_count} words</p>
-                        </div>
-                        <button class="delete-history text-gray-500 hover:text-red-400 p-1 rounded-full hover:bg-gray-800" data-id="${item.id}">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    historyList.appendChild(li);
-
-                    // Click to display humanized text
-                    li.querySelector('a').addEventListener('click', function (e) {
-                        e.preventDefault();
-                        outputText.innerText = item.humanized_text;
-                        outputCharCount.textContent = item.humanized_text.length;
-                        readabilityScore.textContent = item.ultra_mode ? 'Excellent' : 'Good';
-                        uniquenessScore.textContent = item.ultra_mode ? '97%' : '85%';
-                        lastUpdated.textContent = 'From history';
-                        copyBtn.disabled = false;
-                    });
-
-                    // Delete history item
-                    li.querySelector('.delete-history').addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        if (confirm('Delete this history item?')) {
-                            li.classList.add('opacity-50');
-                            setTimeout(() => li.remove(), 300);
-                        }
-                    });
-                });
-
-                // Show/hide load more button
-                loadMoreBtn.classList.toggle('hidden', data.current_page >= data.pages);
-                currentPage = data.current_page;
-            } else {
-                historyList.innerHTML = `
-                    <li class="p-4 text-center">
-                        <i class="fas fa-history text-gray-600 text-xl mb-2"></i>
-                        <p class="text-gray-500 text-sm">No history found</p>
-                    </li>
+    // Authentication
+    function updateUIForUser(userData) {
+        user = userData;
+        if (user) {
+            elements.userName.textContent = user.name || 'User';
+            elements.userPlan.textContent = user.is_premium ? 'Premium Plan' : 'Free Plan';
+            const initial = user.name ? user.name[0].toUpperCase() : 'U';
+            elements.userInitial.textContent = initial;
+            elements.userInitialCollapsed.textContent = initial;
+            elements.userAvatar.innerHTML = user.picture ? `<img src="${user.picture}" class="w-10 h-10 rounded-full" alt="User Avatar">` : `<span>${initial}</span>`;
+            elements.userAvatarCollapsed.innerHTML = user.picture ? `<img src="${user.picture}" class="w-10 h-10 rounded-full" alt="User Avatar">` : `<span>${initial}</span>`;
+            elements.authButton.textContent = 'Log Out';
+            elements.authButton.removeEventListener('click', signInWithGoogle);
+            elements.authButton.addEventListener('click', signOut);
+            elements.headerUserActions.innerHTML = `
+                    <div class="flex items-center space-x-3 justify-center">
+                        <span class="text-sm text-slate-300 text-center-important">${user.name}</span>
+                        <button id="header-logout-btn" class="text-slate-300 hover:text-white px-3 py-1 text-sm text-center-important">Log Out</button>
+                    </div>
                 `;
-                loadMoreBtn.classList.add('hidden');
-            }
-        }, 300);
+            document.getElementById('header-logout-btn').addEventListener('click', signOut);
+            elements.creditsCount.textContent = user.is_premium ? 'Unlimited' : `${user.word_credits || 0} words`;
+        } else {
+            elements.userName.textContent = 'Guest';
+            elements.userPlan.textContent = 'Free Plan';
+            elements.userInitial.textContent = 'G';
+            elements.userInitialCollapsed.textContent = 'G';
+            elements.userAvatar.innerHTML = '<span>G</span>';
+            elements.userAvatarCollapsed.innerHTML = '<span>G</span>';
+            elements.authButton.textContent = 'Log In';
+            elements.authButton.removeEventListener('click', signOut);
+            elements.authButton.addEventListener('click', signInWithGoogle);
+            elements.headerUserActions.innerHTML = `
+                    <button id="header-login-btn" class="text-slate-300 hover:text-white px-3 py-1 text-sm text-center-important">Log In</button>
+                `;
+            document.getElementById('header-login-btn').addEventListener('click', signInWithGoogle);
+            elements.creditsCount.textContent = '1000 words';
+        }
     }
 
-    // Load more history
-    document.getElementById('loadMoreBtn').addEventListener('click', function () {
-        loadHistory(currentPage + 1, true);
+    async function signInWithGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            const result = await firebase.auth().signInWithPopup(provider);
+            const idToken = await result.user.getIdToken();
+            const response = await fetch('/auth/google', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({idToken})
+            });
+            if (response.ok) {
+                const userData = await response.json();
+                updateUIForUser(userData);
+                showNotification('Logged in successfully!', 'success');
+            } else {
+                throw new Error('Authentication failed');
+            }
+        } catch (error) {
+            showError('Failed to sign in with Google.');
+        }
+    }
+
+    async function signOut() {
+        try {
+            await firebase.auth().signOut();
+            await fetch('/logout', {method: 'GET'});
+            updateUIForUser(null);
+            showNotification('Logged out successfully!', 'success');
+        } catch (error) {
+            showError('Failed to sign out.');
+        }
+    }
+
+    firebase.auth().onAuthStateChanged(async firebaseUser => {
+        try {
+            if (firebaseUser) {
+                const idToken = await firebaseUser.getIdToken();
+                const response = await fetch('/auth/google', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({idToken})
+                    });
+                if (response.ok) {
+                    const userData = await response.json();
+                    updateUIForUser(userData);
+                } else {
+                    updateUIForUser(null);
+                }
+            } else {
+                updateUIForUser(null);
+            }
+        } catch (error) {
+            updateUIForUser(null);
+            showError('Failed to verify authentication status.');
+        }
     });
 
-    // Search history
-    document.getElementById('historySearch').addEventListener('input', function () {
-        searchQuery = this.value.trim();
-        currentPage = 1;
-        loadHistory(1, false);
-    });
-
-    // Simulate humanizing function
-    function simulateHumanizing(text, ultraMode) {
-        const readability = ultraMode ? 'Excellent' : 'Good';
-        const uniqueness = ultraMode ? '97%' : '85%';
-
-        let result = text;
-        if (result.length > 20) {
-            result = result.replace(/\./g, '. ');
-            result = result.replace(/\?/g, '? ');
-            result = result.replace(/!/g, '! ');
-            result = result.replace(/good/gi, 'excellent');
-            result = result.replace(/bad/gi, 'poor');
-            result = result.replace(/big/gi, 'substantial');
-            result = result.replace(/very very/gi, 'extremely');
-        }
-
-        return {
-            text: result,
-            stats: {
-                readability: readability,
-                uniqueness: uniqueness
-            }
-        };
-    }
-
-    // Simulate API responses
-    function simulateHistoryData(page, query) {
-        const historyItems = [
-            {
-                id: 1,
-                title: "My essay introduction",
-                created_at: "Today, 2:30 PM",
-                word_count: 312,
-                ultra_mode: false,
-                humanized_text: "The concept of artificial intelligence has evolved dramatically in recent years. From simple rule-based systems to complex neural networks, AI has transformed how we approach computing problems. This essay explores the ethical implications of AI development and how society might adapt to increasingly autonomous systems."
-            },
-            {
-                id: 2,
-                title: "Product description for website",
-                created_at: "Today, 11:45 AM",
-                word_count: 158,
-                ultra_mode: true,
-                humanized_text: "Introducing the EcoFresh Air Purifier – your home's invisible guardian. Unlike conventional purifiers, the EcoFresh employs a revolutionary three-stage filtration system that captures particles as small as 0.1 microns. Its whisper-quiet operation ensures peaceful environments while the elegant design complements any interior aesthetic."
-            },
-            {
-                id: 3,
-                title: "Email to professor",
-                created_at: "Yesterday, 4:15 PM",
-                word_count: 205,
-                ultra_mode: false,
-                humanized_text: "Dear Professor Johnson, I hope this email finds you well. I'm writing regarding the upcoming research project deadline. Due to some unexpected health issues last week, I've fallen slightly behind on my data collection. Would it be possible to discuss a short extension of 3-4 days? I'm confident this would allow me to submit work that truly reflects my capabilities."
-            },
-            {
-                id: 4,
-                title: "Cover letter draft",
-                created_at: "Yesterday, 1:20 PM",
-                word_count: 267,
-                ultra_mode: true,
-                humanized_text: "Throughout my five years in digital marketing, I've developed a passion for data-driven strategies that deliver measurable results. At XYZ Agency, I increased client retention by 37% by implementing personalized campaign tracking dashboards. Your emphasis on innovative approaches to customer engagement strongly aligns with my professional philosophy."
-            },
-            {
-                id: 5,
-                title: "Blog post about climate change",
-                created_at: "May 18, 2025",
-                word_count: 423,
-                ultra_mode: false,
-                humanized_text: "Climate scientists have been warning about the consequences of unchecked carbon emissions for decades. Recent data from the Arctic region shows ice melt accelerating beyond previous models' predictions. This troubling trend suggests we may have less time than previously thought to implement meaningful carbon reduction strategies."
-            }
-        ];
-
-        let filteredItems = historyItems;
-        if (query) {
-            const lowerQuery = query.toLowerCase();
-            filteredItems = historyItems.filter(item =>
-                item.title.toLowerCase().includes(lowerQuery) ||
-                item.humanized_text.toLowerCase().includes(lowerQuery)
-            );
-        }
-
-        const perPage = 3;
-        const startIndex = (page - 1) * perPage;
-        const endIndex = startIndex + perPage;
-        const paginatedItems = filteredItems.slice(startIndex, endIndex);
-
-        return {
-            history: paginatedItems,
-            current_page: page,
-            pages: Math.ceil(filteredItems.length / perPage)
-        };
-    }
-
-    // Initialize event handlers for the demo
-    function initializeDemo() {
+    // Notifications
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        const bgColor = type === 'success' ? 'bg-green-600' : type === 'warning' ? 'bg-yellow-600' : 'bg-red-600';
+        notification.className = `notification ${bgColor} text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2`;
+        notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-times-circle'}"></i>
+                <span>${message}</span>
+            `;
+        elements.notificationContainer.appendChild(notification);
         setTimeout(() => {
-            const placeholderText = "The concept of artificial intelligence has evolved dramatically in recent years. From simple rule-based systems to complex neural networks, AI has transformed how we approach computing problems. This essay explores the ethical implications of AI development and how society might adapt to increasingly autonomous systems.";
-            inputText.value = placeholderText;
-            inputCharCount.textContent = placeholderText.length;
-        }, 500);
-
-        const now = new Date();
-        lastUpdated.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+            notification.classList.add('notification-exit');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
     }
 
-    // Call after DOM is fully loaded
-    document.addEventListener('DOMContentLoaded', function () {
-        loadHistory();
-        initializeDemo();
+    // Error Handling
+    function showError(message, actionUrl = null) {
+        elements.errorMessage.textContent = message;
+        elements.errorModal.classList.remove('hidden');
+        elements.errorActionBtn.classList.toggle('hidden', !actionUrl);
+        if (actionUrl) {
+            elements.errorActionBtn.href = actionUrl;
+            elements.errorActionBtn.textContent = actionUrl.includes('purchase') ? 'Upgrade Now' : 'Log In';
+        }
+    }
 
-        const buttons = document.querySelectorAll('.btn');
-        buttons.forEach(button => {
-            button.addEventListener('mouseenter', function () {
-                this.classList.add('shadow-md');
-            });
-            button.addEventListener('mouseleave', function () {
-                this.classList.remove('shadow-md');
-            });
+    elements.errorCloseBtn.addEventListener('click', () => {
+        elements.errorModal.classList.add('hidden');
+    });
+
+    elements.errorModal.addEventListener('click', (e) => {
+        if (e.target === elements.errorModal) {
+            elements.errorModal.classList.add('hidden');
+        }
+    });
+
+    // Utility Functions
+    function resetOutput() {
+        elements.outputText.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-robot text-3xl mb-3"></i>
+                    <p>Your humanized text will appear here</p>
+                    <p class="text-sm mt-1">Start by entering text in the input panel</p>
+                </div>
+            `;
+        elements.outputWordCount.textContent = '0 words';
+        elements.readabilityScore.textContent = '-';
+        elements.uniquenessScore.textContent = '-';
+        elements.lastUpdated.textContent = 'Never';
+        elements.copyBtn.disabled = true;
+    }
+
+    async function updateCredits() {
+        if (!user) return;
+        try {
+            const response = await fetch('/api/user');
+            const data = await response.json();
+            user.word_credits = data.word_credits;
+            user.is_premium = data.is_premium;
+            elements.creditsCount.textContent = user.is_premium ? 'Unlimited' : `${data.word_credits || 0} words`;
+        } catch (error) {
+            showError('Failed to update credits.');
+        }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        resetOutput();
+        elements.inputText.value = "The concept of artificial intelligence has evolved dramatically in recent years. From simple rule-based systems to complex neural networks, AI has transformed how we approach computing problems. This essay explores the ethical implications of AI development and how society might adapt to increasingly autonomous systems.";
+        elements.inputWordCount.textContent = `${elements.inputText.value.trim().split(/\s+/).filter(w => w).length} words`;
+
+        // Initialize sidebar as collapsed on desktop
+        if (window.innerWidth > 768) {
+            isSidebarOpen = false;
+            elements.sidebar.classList.add('sidebar-collapsed');
+            elements.sidebar.classList.remove('sidebar-expanded');
+            elements.mainContent.classList.add('main-content-collapsed');
+            elements.mainContent.classList.remove('main-content-expanded');
+            elements.logoText.classList.add('hidden');
+            elements.navExpanded.classList.add('hidden');
+            elements.navCollapsed.classList.remove('hidden');
+            elements.userExpanded.classList.add('hidden');
+            elements.userCollapsed.classList.remove('hidden');
+            elements.toggleSidebarBtn.classList.remove('hidden');
+        }
+
+        // Handle window resize for mobile responsiveness
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768 && isSidebarOpen) {
+                toggleSidebar();
+            }
         });
     });
 </script>
