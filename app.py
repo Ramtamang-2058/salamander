@@ -6,6 +6,8 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
+from sqlalchemy.exc import SQLAlchemyError as SQLAlchemyError
+from processor.humanizer import StealthGPTClient
 
 import requests
 from flask import Blueprint, Flask, render_template, request, jsonify, session, redirect, url_for
@@ -15,12 +17,12 @@ from flask_wtf.csrf import CSRFProtect
 from auth.firebase_auth import AuthService
 from billing.billing_service import BillingService
 from billing.rate_limiter import RateLimiter
+from core.admin.cli import register_admin_commands
+from core.admin.views import admin_bp
 from database.db_handler import db, Humanizer, User, Payment, save_user, save_humanizer, save_payment, update_payment
 from models.abstracts import plan_details
-from processor.humanizer import StealthGPTClient
 from utils.logger import logger
-from core.admin.views import admin_bp
-from core.admin.cli import register_admin_commands
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
@@ -31,6 +33,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 app.register_blueprint(admin_bp, url_prefix='/admin')
 
+client = StealthGPTClient()
 # Register CLI commands
 register_admin_commands(app)
 migrate = Migrate(app, db)

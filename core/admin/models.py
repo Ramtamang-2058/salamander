@@ -1,5 +1,6 @@
-from database.db_handler import db
 from datetime import datetime
+
+from database.db_handler import db
 
 
 class Admin(db.Model):
