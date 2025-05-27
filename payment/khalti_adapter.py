@@ -4,8 +4,8 @@ from flask import url_for, session
 from config import KHALTI_BASE_URL, KHALTI_INITIATE_URL, KHALTI_LOOKUP_URL, KHALTI_SECRET_KEY
 from database.db_handler import update_payment
 from models.domain import PaymentData
-from payment.helper import render_payment_success, render_payment_failure, apply_plan_to_user
-from payment_adapter import PaymentAdapter
+from payment.handler import render_payment_success, render_payment_failure, apply_plan_to_user
+from payment.payment_adapter import PaymentAdapter
 from utils.logger import logger
 
 

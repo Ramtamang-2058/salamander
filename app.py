@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -5,25 +6,27 @@ from datetime import datetime, timedelta
 from flask import Blueprint, Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
-from sqlalchemy.exc import SQLAlchemyError as SQLAlchemyError
 
 from auth.firebase_auth import AuthService
 from billing.billing_service import BillingService
 from billing.rate_limiter import RateLimiter
 from config import (
     SQLALCHEMY_DATABASE_URI,
+    FIREBASE_CONFIG
 )
 from core.admin.cli import register_admin_commands
 from core.admin.views import admin_bp
-from database.db_handler import db, Humanizer, User, Payment, save_user, save_humanizer, update_payment
+from database.db_handler import db, Humanizer, User, Payment, save_humanizer, update_payment
 from payment.esewa_adapter import EsewaPaymentAdapter
-from payment.helper import handle_esewa_initiation, handle_khalti_initiation, validate_plan
-from payment.helper import (
+from payment.handler import (
     render_payment_success,
-    extract_callback_identifiers,
     render_payment_failure,
-    is_authorized_user,
 )
+from payment.helper import (
+    extract_callback_identifiers,
+    authenticate_and_set_session,
+)
+from payment.helper import handle_esewa_initiation, handle_khalti_initiation, validate_plan
 from payment.khalti_adapter import KhaltiPaymentAdapter
 from processor.humanizer import StealthGPTClient
 from utils.decorators import login_required
@@ -53,7 +56,7 @@ rate_limiter = RateLimiter(max_requests=3, window_seconds=86400)
 
 
 
-@app.route('/')
+@app.route('/', endpoint='dashboard')
 def index():
     is_logged_in = 'user' in session
     user = db.session.get(User, session['user']['uid']) if is_logged_in else None
@@ -63,46 +66,30 @@ def index():
     return render_template('dashboard.html',
                            user=user,
                            is_logged_in=is_logged_in,
-                           firebase_config=os.environ.get('FIREBASE_CONFIG', '{}'))
+                           firebase_config=FIREBASE_CONFIG)
 
 
 @app.route('/login')
 def login():
-    return render_template('login.html', firebase_config=os.environ.get('FIREBASE_CONFIG', '{}'))
+    return render_template('login.html', firebase_config=FIREBASE_CONFIG)
 
 
 @app.route('/auth/google', methods=['POST'])
-@csrf.exempt  # Adjust based on client implementation
 def google_auth():
-    try:
-        id_token = request.json.get('idToken')
-        # Placeholder for Firebase authentication
-        user_info = {'uid': 'test-uid', 'name': 'Test User', 'email': 'test@example.com',
-                     'picture': ''}  # Replace with google_sign_in(id_token)
-        uid = user_info.get('uid')
-        name = user_info.get('name')
-        email = user_info.get('email') or 'human@gmail.com'
-        picture = user_info.get('picture', '')
-        user = save_user(uid, name, email, picture)
-        if not user:
-            return jsonify({"status": "error", "message": "Failed to save user"}), 500
-        session['user'] = {
-            'uid': user.uid,
-            'name': user.name,
-            'email': user.email,
-            'picture': user.picture,
-            'is_premium': user.is_premium
-        }
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Google auth failed: {str(e)}", exc_info=True)
-        return jsonify({"status": "error", "message": "Authentication failed"}), 500
+    id_token = request.json.get('idToken')
+    return authenticate_and_set_session(id_token, token_source='Google')
 
 
-@app.route('/logout')
+@app.route('/set_session', methods=['POST'])
+def set_session():
+    id_token = request.form.get('id_token')
+    return authenticate_and_set_session(id_token, token_source='Session')
+
+
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 @app.route('/purchase')
@@ -131,77 +118,62 @@ def humanize_text():
 
         text = data.get('text', '').strip()
         ultra_mode = data.get('ultra_mode', False)
-
-        # Input validation
         if not text:
             return jsonify({'error': 'No text provided'}), 400
         if len(text) > 10000:
             return jsonify({'error': 'Text exceeds 10,000 character limit'}), 400
-        word_count = len(text.split())
 
         user_id = session.get('user', {}).get('uid')
         ip_address = request.remote_addr
+        word_count = len(text.split())
 
-        if user_id:
-            # Authenticated user
-            user = db.session.get(User, user_id)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
+        async def handle_request():
+            if user_id:
+                user = db.session.get(User, user_id)
+                if not user:
+                    return {'error': 'User not found'}, 404
+                if ultra_mode and not user.is_premium:
+                    return {'error': 'Ultra mode requires premium'}, 403
+                if not user.is_premium and user.subscription_expiry and user.subscription_expiry < datetime.utcnow():
+                    return {'error': 'Subscription expired'}, 403
+                if not user.is_premium and user.word_credits < word_count:
+                    return {'error': 'Insufficient credits'}, 403
 
-            # Check subscription and credits
-            if ultra_mode and not user.is_premium:
-                return jsonify({'error': 'Ultra mode requires a premium subscription'}), 403
-            if not user.is_premium and user.subscription_expiry and user.subscription_expiry < datetime.utcnow():
-                return jsonify({'error': 'Subscription expired'}), 403
-            if not user.is_premium and user.word_credits < word_count:
-                return jsonify({'error': 'Insufficient credits'}), 403
+                result = await client.paraphrase(text, user_id=user_id, ultra_mode=ultra_mode)
+                if 'error' in result:
+                    return {'error': result['error']}, 500
 
-            # Process humanization
-            result = client.paraphrase(text, user_id=user_id, ultra_mode=ultra_mode)
-            if 'error' in result:
-                return jsonify({'error': result['error']}), 500
-
-            # Update credits for non-premium users
-            if not user.is_premium:
-                try:
-                    user.word_credits -= word_count
-                    db.session.commit()
-                except SQLAlchemyError as e:
-                    db.session.rollback()
-                    logger.error(f"Failed to update credits for user {user_id}: {str(e)}")
-                    return jsonify({'error': 'Failed to update credits'}), 500
-
-            # Save result
-            try:
                 save_humanizer(user_id, text, result.get('response', ''), ultra_mode=ultra_mode)
-            except SQLAlchemyError as e:
-                logger.error(f"Failed to save humanizer result for user {user_id}: {str(e)}")
-                # Non-critical error, proceed with response
-        else:
-            # Non-authenticated user
-            if ultra_mode:
-                return jsonify({'error': 'Ultra mode requires login and premium subscription'}), 403
-            if word_count > 100:
-                return jsonify({'error': 'Free version limited to 100 words'}), 400
-            if not rate_limiter.allow_request(ip_address):
-                return jsonify({'error': 'Rate limit exceeded for free version'}), 429
 
-            result = client.paraphrase(text, user_id=None, ultra_mode=False)
-            if 'error' in result:
-                return jsonify({'error': result['error']}), 500
+                return {
+                    'result': result.get('response'),
+                    'stats': {'readability': 'Excellent' if ultra_mode else 'Good'}
+                }, 200
 
-        # Return response
-        return jsonify({
-            'result': result.get('response', f"Paraphrased: {text}"),
-            'stats': {
-                'readability': 'Excellent' if ultra_mode else 'Good',
-                'uniqueness': '97%' if ultra_mode else '85%'
-            }
-        }), 200
+            else:
+                if ultra_mode:
+                    return {'error': 'Login required for Ultra mode'}, 403
+                if word_count > 100:
+                    return {'error': 'Free version limited to 100 words'}, 400
+                if not rate_limiter.allow_request(ip_address):
+                    return {'error': 'Rate limit exceeded'}, 429
+
+                result = await client.paraphrase(text, ultra_mode=False)
+                if 'error' in result:
+                    return {'error': result['error']}, 500
+
+                return {
+                    'result': result.get('response'),
+                    'stats': {'readability': 'Good'}
+                }, 200
+
+        # Run async block from sync route
+        result, status = asyncio.run(handle_request())
+        return jsonify(result), status
 
     except Exception as e:
-        logger.error(f"Humanize text failed: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Humanize failed: {e}", exc_info=True)
+        return jsonify({'error': 'Internal Server Error'}), 500
 
 
 @app.route('/api/history', methods=['GET'])
@@ -252,6 +224,19 @@ def delete_history(humanizer_id):
         logger.error(f"Delete history failed: {str(e)}", exc_info=True)
         db.session.rollback()
         return jsonify({'error': 'Failed to delete history item'}), 500
+
+@app.route('/api/history/clear', methods=['DELETE'])
+@login_required
+@csrf.exempt
+def clear_history():
+    try:
+        with db.session.begin():
+            Humanizer.query.filter_by(user_id=session['user']['uid']).delete()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Clear history failed: {str(e)}", exc_info=True)
+        db.session.rollback()
+        return jsonify({'error': 'Failed to clear history'}), 500
 
 
 @app.route('/api/payment/initiate', methods=['POST'])

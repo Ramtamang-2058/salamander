@@ -1,6 +1,6 @@
 import typing
 from abc import ABC, abstractmethod
-from typing import Optional
+
 from models.domain import PaymentData
 
 

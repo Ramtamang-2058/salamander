@@ -10,8 +10,8 @@ from config import ESEWA_SECRET_KEY, ESEWA_PRODUCT_CODE, BASE_URL, ESEWA_TRANS_V
 from database.db_handler import Payment
 from database.db_handler import update_payment
 from models.domain import PaymentData
-from payment.helper import render_payment_success, render_payment_failure, apply_plan_to_user
-from payment_adapter import PaymentAdapter
+from payment.handler import render_payment_success, render_payment_failure, apply_plan_to_user
+from payment.payment_adapter import PaymentAdapter
 from utils.logger import logger
 
 

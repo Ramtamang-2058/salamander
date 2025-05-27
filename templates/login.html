@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>Login - Salamander</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -28,6 +30,30 @@
             100% {
                 background-position: 0% 50%;
             }
+        }
+
+        @keyframes blob {
+            0%, 100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+            33% {
+                transform: translate(30px, -50px) scale(1.1);
+            }
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+        }
+
+        .animate-blob {
+            animation: blob 8s infinite;
+        }
+
+        .animation-delay-2000 {
+            animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+            animation-delay: 4s;
         }
 
         .glass-card {
@@ -70,12 +96,12 @@
         <!-- Login Card -->
         <div class="glass-card py-10 px-8 rounded-2xl shadow-2xl mb-8">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Welcome Back</h2>
+            <div id="error-message" class="text-red-600 text-sm mb-4 hidden"></div>
 
             <div class="space-y-6">
                 <button
-                    onclick="signInWithGoogle()"
-                    class="flex items-center justify-center w-full px-6 py-4 rounded-xl shadow-md text-base font-semibold text-gray-800 bg-white hover:bg-gray-50 transition-all duration-300 btn-hover border border-gray-200"
                     id="googleSignInBtn"
+                    class="flex items-center justify-center w-full px-6 py-4 rounded-xl shadow-md text-base font-semibold text-gray-800 bg-white hover:bg-gray-50 transition-all duration-300 btn-hover border border-gray-200"
                 >
                     <svg class="w-6 h-6 mr-3" viewBox="0 0 24 24">
                         <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" fill="#4285F4"/>
@@ -95,6 +121,7 @@
 
             <div class="space-y-4">
                 <button
+                        id="guestSignInBtn"
                     class="flex items-center justify-center w-full px-6 py-4 rounded-xl shadow-md text-base font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 btn-hover"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -104,66 +131,46 @@
                 </button>
             </div>
 
-            <div class="mt-8 text-center">
+            <div class="mt-6 text-center">
                 <a href="/" class="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline transition-all">
                     Back to Paraphraser
                 </a>
             </div>
         </div>
-
-        <!-- Features Highlight -->
-        <div class="flex justify-center space-x-4 mb-8">
-            <div class="glass-card px-4 py-3 rounded-lg text-center flex flex-col items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <span class="text-xs font-medium text-gray-700">Fast & Reliable</span>
-            </div>
-            <div class="glass-card px-4 py-3 rounded-lg text-center flex flex-col items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                <span class="text-xs font-medium text-gray-700">Secure</span>
-            </div>
-            <div class="glass-card px-4 py-3 rounded-lg text-center flex flex-col items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span class="text-xs font-medium text-gray-700">AI-Powered</span>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="text-center text-white text-sm font-medium opacity-75">
-            © 2025 Salamander. All rights reserved.
-        </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/9.6.0/firebase-auth.js";
+        import {initializeApp} from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import {
+            getAuth,
+            GoogleAuthProvider,
+            signInWithPopup
+        } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js";
 
+        // Replace with your actual Firebase configuration
         const firebaseConfig = {{ firebase_config | tojson }};
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-
         const provider = new GoogleAuthProvider();
 
-        window.signInWithGoogle = async () => {
+        const googleSignInBtn = document.getElementById('googleSignInBtn');
+        const guestSignInBtn = document.getElementById('guestSignInBtn');
+        const errorMessage = document.getElementById('error-message');
+
+        googleSignInBtn.addEventListener('click', async () => {
             try {
-                // Show loading state
-                const button = document.getElementById('googleSignInBtn');
-                button.disabled = true;
-                button.innerHTML = '<svg class="animate-spin h-6 w-6 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Signing in...';
+                googleSignInBtn.disabled = true;
+                googleSignInBtn.innerHTML = '<svg class="animate-spin h-6 w-6 text-indigo-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Signing in...';
 
                 const result = await signInWithPopup(auth, provider);
                 const user = result.user;
                 const idToken = await user.getIdToken();
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
 
                 const res = await fetch('/auth/google', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
                     body: JSON.stringify({ idToken })
                 });
 
@@ -171,20 +178,27 @@
                 if (data.status === 'success') {
                     window.location.href = '/';
                 } else {
-                    alert('Login failed: ' + data.message);
-                    // Reset button
-                    button.disabled = false;
-                    button.innerHTML = '<svg class="w-6 h-6 mr-3" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" fill="#4285F4"/></svg> Continue with Google';
+                    throw new Error(data.message || 'Login failed');
                 }
             } catch (err) {
                 console.error('Login error:', err);
-                alert('Login failed. Please try again.');
-                // Reset button
-                const button = document.getElementById('googleSignInBtn');
-                button.disabled = false;
-                button.innerHTML = '<svg class="w-6 h-6 mr-3" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" fill="#4285F4"/></svg> Continue with Google';
+                errorMessage.textContent = err.message || 'Login failed. Please try again.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                googleSignInBtn.disabled = false;
+                googleSignInBtn.innerHTML = '<svg class="w-6 h-6 mr-3" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" fill="#4285F4"/></svg> Continue with Google';
             }
-        };
+        });
+
+        guestSignInBtn.addEventListener('click', async () => {
+            try {
+                window.location.href = '/';
+            } catch (err) {
+                console.error('Guest login error:', err);
+                errorMessage.textContent = 'Failed to continue as guest';
+                errorMessage.classList.remove('hidden');
+            }
+        });
     </script>
 </body>
 </html>

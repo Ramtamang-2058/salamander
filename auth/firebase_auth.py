@@ -29,9 +29,9 @@ def google_sign_in(id_token):
     decoded_token = verify_id_token(id_token)
     if decoded_token:
         uid = decoded_token['uid']
-        email = decoded_token.get('email')
+        email = decoded_token.get('email') or "human@gmail.com"
         name = decoded_token.get('name')
-        profile = decoded_token.get('picture')
+        profile = decoded_token.get('picture') or 'static/default.png'
         return {"uid": uid, "email": email, "name": name, "profile": profile}
     return None
 

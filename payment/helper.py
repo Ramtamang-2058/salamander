@@ -1,17 +1,17 @@
 import base64
 import json
-from datetime import datetime, timedelta
 
 import requests
-from flask import jsonify, session, url_for, render_template
+from flask import jsonify, session, url_for
 from requests import request
 
 from config import KHALTI_SECRET_KEY, SITE_ENDPOINT, KHALTI_INITIATE_URL, ESEWA_EPAY_URL
-from database.db_handler import save_payment
+from database.db_handler import save_payment, save_user
 from models.abstracts import plan_details
 from models.domain import PaymentData
 from payment.esewa_adapter import EsewaPaymentAdapter
 from utils.logger import logger
+from auth.firebase_auth import google_sign_in
 
 
 def validate_plan(plan, amount):
@@ -85,12 +85,6 @@ def handle_esewa_initiation(plan, amount, transaction_uuid):
     })
 
 
-def apply_plan_to_user(user, plan_key):
-    details = plan_details[plan_key]
-    user.word_credits = (user.word_credits or 0) + details['words']
-    user.is_premium = details['is_premium']
-    user.subscription_expiry = datetime.utcnow() + timedelta(days=details['validity_days'])
-
 
 def extract_callback_identifiers():
     pidx = request.args.get('pidx') or request.args.get('pid')
@@ -109,13 +103,45 @@ def extract_callback_identifiers():
     return pidx, encoded_response
 
 
-def is_authorized_user(user_id):
-    return session.get('user', {}).get('uid') == user_id
+def authenticate_and_set_session(id_token, token_source='Google'):
+    if 'user' in session:
+        return jsonify({
+            'status': 'success',
+            'message': 'You are already logged in.',
+            'redirect': url_for('dashboard')
+        }), 200
 
+    try:
+        user_data = google_sign_in(id_token)
+        user = save_user(
+            uid=user_data['uid'],
+            name=user_data.get('name', 'User'),
+            email=user_data.get('email', 'user@example.com'),
+            picture=user_data.get('picture', '')
+        )
+        if not user:
+            return jsonify({
+                'status': 'error',
+                'message': f'Oops! Unable to save your data from {token_source}. Please try again later.'
+            }), 500
 
-def render_payment_failure(message):
-    return render_template('payment_failure.html', message=message)
+        session['user'] = {
+            'uid': user.uid,
+            'idToken': id_token,
+            'name': user.name,
+            'email': user.email,
+            'picture': user.picture,
+            'is_premium': user.is_premium
+        }
+        return jsonify({
+            'status': 'success',
+            'message': f'Welcome back, {user.name}!',
+            'redirect': url_for('dashboard')
+        }), 200
 
-
-def render_payment_success(message):
-    return render_template('payment_success.html', message=message)
+    except Exception as e:
+        logger.error(f"{token_source} authentication failed: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Authentication failed. Please check your credentials and try again.'
+        }), 401
