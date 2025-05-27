@@ -5,13 +5,13 @@ import requests
 from flask import jsonify, session, url_for
 from requests import request
 
+from auth.firebase_auth import google_sign_in
 from config import KHALTI_SECRET_KEY, SITE_ENDPOINT, KHALTI_INITIATE_URL, ESEWA_EPAY_URL
 from database.db_handler import save_payment, save_user
 from models.abstracts import plan_details
 from models.domain import PaymentData
 from payment.esewa_adapter import EsewaPaymentAdapter
 from utils.logger import logger
-from auth.firebase_auth import google_sign_in
 
 
 def validate_plan(plan, amount):
@@ -117,7 +117,7 @@ def authenticate_and_set_session(id_token, token_source='Google'):
             uid=user_data['uid'],
             name=user_data.get('name', 'User'),
             email=user_data.get('email', 'user@example.com'),
-            picture=user_data.get('picture', '')
+            # picture=user_data.get('picture', '')
         )
         if not user:
             return jsonify({
