@@ -9,10 +9,8 @@ from models import DataModel
 @dataclass
 class PaymentData(DataModel):
 
-    plan: PaymentPlan
     amount: float
     transaction_uuid : str
-    payment_method: PaymentMethod
     data: Any = None
 
     def __init__(self, /, **data: Any) -> None:

@@ -31,3 +31,13 @@ ESEWA_BASE_URL = os.environ.get("ESEWA_BASE_URL")
 ESEWA_PRODUCT_CODE = os.environ.get("ESEWA_PRODUCT_CODE")
 STEALTHGPT_API_TOKEN = os.getenv("STEALTHGPT_API_TOKEN", "static/ppt/")
 STEALTHGPT_API_URL = os.getenv("STEALTHGPT_API_URL", "https://stealthgpt.ai/api/stealthify")
+BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
+
+# Payment gateway configurations
+KHALTI_BASE_URL = os.environ.get('KHALTI_BASE_URL', 'https://dev.khalti.com/api/v2/')
+KHALTI_INITIATE_URL = f'{KHALTI_BASE_URL}epayment/initiate/'
+KHALTI_LOOKUP_URL = f'{KHALTI_BASE_URL}epayment/lookup/'
+
+ESEWA_EPAY_URL = f'{ESEWA_BASE_URL}/api/epay/main/v2/form'
+ESEWA_TRANS_VERIFY_URL = f'{ESEWA_BASE_URL}/api/epay/transaction/status/'
+SITE_ENDPOINT = os.environ.get('SITE_ENDPOINT')

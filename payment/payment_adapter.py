@@ -1,3 +1,4 @@
+import typing
 from abc import ABC, abstractmethod
 from typing import Optional
 from models.domain import PaymentData
@@ -5,11 +6,11 @@ from models.domain import PaymentData
 
 class PaymentAdapter(ABC):
     @abstractmethod
-    def verify_signature(self):
+    def __verify_signature(self, data: typing.Any):
         pass
 
     @abstractmethod
-    def generate_signature(self):
+    def __generate_signature(self, data: typing.Any):
         pass
 
     @abstractmethod

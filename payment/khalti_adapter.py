@@ -1,16 +1,21 @@
-import os
-from payment_adapter import PaymentAdapter
-from models.domain import PaymentData
+import requests
 from flask import url_for, session
 
-# Payment gateway configurations
-KHALTI_BASE_URL = os.environ.get('KHALTI_BASE_URL', 'https://dev.khalti.com/api/v2/')
-KHALTI_INITIATE_URL = f'{KHALTI_BASE_URL}epayment/initiate/'
-KHALTI_LOOKUP_URL = f'{KHALTI_BASE_URL}epayment/lookup/'
-KHALTI_SECRET_KEY = os.environ.get('KHALTI_SECRET_KEY', 'test-secret-key')
+from config import KHALTI_BASE_URL, KHALTI_INITIATE_URL, KHALTI_LOOKUP_URL, KHALTI_SECRET_KEY
+from database.db_handler import update_payment
+from models.domain import PaymentData
+from payment.helper import render_payment_success, render_payment_failure, apply_plan_to_user
+from payment_adapter import PaymentAdapter
+from utils.logger import logger
 
 
 class KhaltiPaymentAdapter(PaymentAdapter):
+    def __init__(self):
+        self.KHALTI_BASE_URL = KHALTI_BASE_URL
+        self.KHALTI_INITIATE_URL = KHALTI_INITIATE_URL
+        self.KHALTI_SECRET_KEY = KHALTI_SECRET_KEY
+        self.KHALTI_LOOKUP_URL = KHALTI_LOOKUP_URL
+
     def verify_signature(self):
         pass
     def generate_signature(self):
@@ -43,3 +48,24 @@ class KhaltiPaymentAdapter(PaymentAdapter):
         }
 
         return payload, headers
+
+    def handle_khalti_callback(self, payment):
+        try:
+            headers = {'Authorization': f'Key {self.KHALTI_SECRET_KEY}', 'Content-Type': 'application/json'}
+            payload = {'pidx': payment.pidx}
+            response = requests.post(self.KHALTI_LOOKUP_URL, json=payload, headers=headers)
+            data = response.json()
+
+            if response.status_code == 200 and data.get('status') == 'Completed':
+                update_payment(payment.pidx, 'Completed', data.get('transaction_id'))
+                apply_plan_to_user(payment)
+                logger.info(f"Khalti payment completed: pidx={payment.pidx}")
+                return render_payment_success("Payment successful! Your credits have been added.")
+            else:
+                update_payment(payment.pidx, data.get('status', 'Failed'))
+                logger.warning(f"Khalti verification failed: pidx={payment.pidx}")
+                return render_payment_failure("Payment verification failed")
+        except Exception as e:
+            logger.exception(f"Khalti callback failed: {e}")
+            update_payment(payment.pidx, 'VerificationFailed')
+            return render_payment_failure("Khalti payment processing error")
