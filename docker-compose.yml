@@ -19,7 +19,10 @@ services:
   db:
     image: postgres:13
     environment:
-      - POSTGRES_USER=postgres
+#      -  Uncomment the line below for server.
+      - POSTGRES_USER=salamander
+#      -  Uncomment the line below if you want to set a specific user local
+#      - POSTGRES_USER=salamander
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=salamander
     volumes:
