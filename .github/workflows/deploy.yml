@@ -19,12 +19,14 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << EOF
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
+            echo "📦 Updating and installing dependencies"
             sudo apt update
             sudo apt install -y docker.io docker-compose
 
+            echo "📁 Cloning or updating repo"
             mkdir -p ~/salamander
             cd ~/salamander
 
@@ -34,65 +36,58 @@ jobs:
               git pull origin master
             fi
 
+            echo "🔐 Writing Firebase config"
             mkdir -p config
+            echo '${{ secrets.FIREBASE_CONFIG }}' > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json
 
-            # Write Firebase config JSON file
-            cat > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json << JSONEOF
-${{ secrets.FIREBASE_CONFIG }}
-JSONEOF
+            echo "📄 Handling .env file"
+            # Create from existing or empty
+            touch .env
 
-            # Write .env file with secrets interpolated by GitHub Actions
-            cat > .env << ENVEOF
-FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
-KHALTI_SECRET_KEY=${{ secrets.KHALTI_SECRET_KEY }}
-ESEWA_SECRET_KEY=${{ secrets.ESEWA_SECRET_KEY }}
-FIREBASE_SERVICE_ACCOUNT_PATH=config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json
-FLASK_APP=app.py
-FLASK_ENV=production
-FLASK_RUN_HOST=0.0.0.0
-SQLALCHEMY_DATABASE_URI=postgresql://salamander:password@db:5432/salamander
-KHALTI_BASE_URL=https://khalti.com/api/v2/
-ESEWA_BASE_URL=https://uat.esewa.com.np
-ESEWA_PRODUCT_CODE=EPAYTEST
-BASE_URL=https://your-domain.com
-STEALTHGPT_API_URL=https://stealthgpt.ai/api/stealthify
-ENVEOF
+            # Backup existing in case
+            cp .env .env.backup.$(date +%s)
 
-            echo "🚀 Building and starting containers"
+            # Write GitHub secret into temp file
+            echo '${{ secrets.UNGABLE_MIXED42 }}' > .env.github
+
+            # Merge both: env values from GitHub secret take precedence
+            (
+              grep -v '^#' .env.github
+              grep -v '^#' .env | grep -v -E "^($(cut -d= -f1 .env.github | tr '\n' '|' | sed 's/|$//'))="
+            ) > .env.merged
+
+            mv .env.merged .env
+            rm .env.github
+
+            echo "🚀 Starting Docker"
             docker-compose down || true
             docker-compose up -d --build
 
-            echo "⏳ Waiting for app..."
-
-            echo "📋 Container status:"
-            docker-compose ps
-
-            echo "📄 App logs (last 20 lines):"
-            docker-compose logs --tail=20 app
-
-            sleep 10
-
+            echo "🩺 Running health checks"
             for i in {1..15}; do
-              echo "🔍 Health check attempt $i/15"
+              echo "🔍 Health check $i/15"
+
               if ! docker-compose ps | grep -q "Up"; then
-                echo "❌ Container stopped running"
+                echo "❌ Container not running"
                 docker-compose logs app
                 exit 1
               fi
+
               if curl -s -f http://localhost:5000/ >/dev/null 2>&1 || \
                  curl -s -f http://localhost:3000/ >/dev/null 2>&1 || \
                  curl -s -f http://localhost:8000/ >/dev/null 2>&1 || \
-                 curl -s http://localhost:5000/health >/dev/null 2>&1; then
-                echo "✅ App is responding!"
+                 curl -s -f http://localhost:5000/health >/dev/null 2>&1; then
+                echo "✅ App is healthy!"
                 break
               fi
+
               if [ $i -eq 15 ]; then
-                echo "❌ App did not respond after 15 attempts"
+                echo "❌ App failed to start after 15 attempts"
                 docker-compose ps
                 docker-compose logs app
-                echo "⚠️ Deployment completed but app health check failed"
                 break
               fi
+
               sleep 5
             done
           EOF
