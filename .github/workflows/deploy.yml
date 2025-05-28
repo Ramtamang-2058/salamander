@@ -1,25 +1,37 @@
-name: Deploy to EC2 with Runner
+name: Deploy to EC2
 
 on:
   push:
     branches:
-      - master  # or master
+      - main
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t flaskapp .
-
-      - name: Stop old container (if any)
+      - name: Set up SSH
         run: |
-          docker stop flaskapp || true
-          docker rm flaskapp || true
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Run new container
-        run: docker run -d -p 80:5000 --name flaskapp flaskapp
+      - name: Deploy on EC2
+        run: |
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            # Clone the repo if not exists
+            if [ ! -d "~/salamander" ]; then
+              git clone git@github.com:Ramtamang-2058/salamander.git ~/salamander
+            fi
+            cd ~/salamander
+            git pull origin main
+
+            # Build and run docker
+            docker build -t flaskapp .
+            docker stop flaskapp || true && docker rm flaskapp || true
+            docker run -d -p 80:5000 --name flaskapp flaskapp
+          EOF
