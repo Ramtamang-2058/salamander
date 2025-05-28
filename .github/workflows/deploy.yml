@@ -24,29 +24,31 @@ jobs:
           ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            echo "📁 Ensuring project directory exists"
+            echo "Checking docker-compose installation..."
+            if ! command -v docker-compose &> /dev/null; then
+              echo "docker-compose not found, installing..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+              docker-compose --version
+            else
+              echo "docker-compose already installed"
+            fi
+
             mkdir -p ~/salamander
             cd ~/salamander
 
             if [ ! -d ".git" ]; then
-              echo "🔄 Cloning fresh repo"
               git clone https://github.com/${{ github.repository }} . 
             else
-              echo "🔃 Pulling latest code"
               git pull origin master
             fi
 
-            echo "🛑 Stopping and removing old containers"
             docker-compose down || true
-
-            echo "🐳 Rebuilding and starting containers"
             docker-compose up -d --build
 
-            echo "⏳ Waiting for app to start..."
             sleep 10
 
-            echo "🧪 Performing health check..."
-            curl --fail http://localhost:5000/health || (echo "❌ Health check failed" && exit 1)
+            curl --fail http://localhost:5000/health || (echo "Health check failed" && exit 1)
 
-            echo "✅ Deployment complete!"
+            echo "Deployment complete"
           EOF
