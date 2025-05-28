@@ -49,14 +49,20 @@ jobs:
             # First, decode the base64 .env file
             echo '${{ secrets.UNGABLE_MIXED42_B64 }}' | base64 -d > .env
 
-            # Then append the Firebase config JSON to the .env file
-            echo "" >> .env
-            echo "# Firebase Service Account Configuration" >> .env
-            echo 'FIREBASE_CONFIG=${{ secrets.FIREBASE_CONFIG }}' >> .env
-
-            # Create the Firebase service account file for fallback
+            # Create the Firebase service account file (primary method)
             mkdir -p config
-            echo '${{ secrets.FIREBASE_CONFIG }}' > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json
+            cat > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json << 'FIREBASE_JSON_EOF'
+${{ secrets.FIREBASE_CONFIG }}
+FIREBASE_JSON_EOF
+
+            # Also set the Firebase config as an environment variable for Docker
+            # We'll pass it directly to Docker Compose rather than adding to .env
+            export FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}'
+            
+            # Verify the files are created correctly
+            echo "📋 Environment file status:"
+            ls -la .env config/ || true
+            echo "📋 Environment file line count: $(wc -l < .env)"
 
             echo "🐳 Preparing Docker environment"
             # Stop and remove existing containers
@@ -72,8 +78,8 @@ jobs:
             # Build with no cache to ensure fresh build
             docker-compose build --no-cache
             
-            # Start services
-            docker-compose up -d
+            # Start services with Firebase config environment variable
+            FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}' docker-compose up -d
 
             echo "⏳ Waiting for services to initialize..."
             sleep 15

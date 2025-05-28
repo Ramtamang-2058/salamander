@@ -28,6 +28,7 @@ services:
       - FLASK_ENV=production
       - FLASK_RUN_HOST=0.0.0.0
       - SQLALCHEMY_DATABASE_URI=postgresql://salamander:password@db:5432/salamander
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
     env_file:
       - .env
     depends_on:
@@ -43,6 +44,7 @@ services:
     volumes:
       - ./static:/app/static
       - ./uploads:/app/uploads
+      - ./config:/app/config
 
 volumes:
   postgres_data:
