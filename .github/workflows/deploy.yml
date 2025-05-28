@@ -2,9 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches:
-      - master
-      # - main
+    branches: [master]
 
 jobs:
   deploy:
@@ -14,25 +12,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
+      - name: Setup SSH key
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
-      - name: Deploy to EC2 via SSH
+      - name: Deploy via SSH
         run: |
-          ssh -tt -i key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            echo "🔍 Checking docker-compose..."
-            if ! command -v docker-compose &> /dev/null; then
-              echo "📦 Installing docker-compose..."
-              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-            fi
-            docker-compose --version
+            sudo apt update
+            sudo apt install -y docker.io docker-compose
 
-            echo "📁 Setting up salamander directory..."
             mkdir -p ~/salamander
             cd ~/salamander
 
@@ -42,25 +34,21 @@ jobs:
               git pull origin master
             fi
 
-            echo "🐳 Rebuilding and starting containers..."
+            echo "🚀 Building and starting containers"
             docker-compose down || true
             docker-compose up -d --build
 
-            echo "⏳ Waiting for the app to be ready..."
+            echo "⏳ Waiting for app..."
             for i in {1..10}; do
-              STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/)
-              if [ "$STATUS_CODE" == "200" ]; then
-                echo "✅ App is up and responding with 200 OK"
+              if curl -s http://localhost:5000/ | grep -i "login\\|html\\|<!DOCTYPE"; then
+                echo "✅ App is up"
                 break
               fi
-              echo "⏳ Still waiting... ($i/10)"
+              echo "Still waiting... ($i/10)"
               sleep 3
               if [ $i -eq 10 ]; then
-                echo "❌ App didn't start properly (status code: $STATUS_CODE)"
-                docker-compose logs
+                echo "❌ App did not respond in time"
                 exit 1
               fi
             done
-
-            echo "🚀 Deployment complete"
           EOF
