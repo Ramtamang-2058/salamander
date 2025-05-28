@@ -1,18 +1,31 @@
-name: SSH to EC2
+name: Deploy to EC2
+
 on:
   push:
     branches:
-      - master
+      - master  # or 'main' depending on your repo
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Configure SSH
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-      - name: SSH into EC2 and run commands
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} "echo 'Connected to EC2' && ls -la"
+          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/salamander || git clone https://github.com/Ramtamang-2058/salamander.git salamander && cd salamander
+            git pull origin master  # or main
+            docker build -t flaskapp .
+            docker stop flaskapp || true && docker rm flaskapp || true
+            docker run -d -p 80:5000 --name flaskapp flaskapp
+          EOF
