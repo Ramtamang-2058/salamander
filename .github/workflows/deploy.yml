@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - master
-#      - main
+      # - main
 
 jobs:
   deploy:
@@ -22,22 +22,31 @@ jobs:
       - name: Deploy to EC2 via SSH
         run: |
           ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
-            set -e  # exit on any error
-            cd ~/salamander || mkdir ~/salamander && cd ~/salamander
+            set -e
 
-            echo "Pulling latest code..."
+            echo "📁 Ensuring project directory exists"
+            mkdir -p ~/salamander
+            cd ~/salamander
+
             if [ ! -d ".git" ]; then
+              echo "🔄 Cloning fresh repo"
               git clone https://github.com/${{ github.repository }} . 
             else
+              echo "🔃 Pulling latest code"
               git pull origin master
             fi
 
-            echo "Building Docker image..."
-            docker build -t flask-app .
+            echo "🛑 Stopping and removing old containers"
+            docker-compose down || true
 
-            echo "Stopping and removing any existing container..."
-            docker rm -f flask-container || true
+            echo "🐳 Rebuilding and starting containers"
+            docker-compose up -d --build
 
-            echo "Starting new Docker container..."
-            docker run -d --name flask-container -p 8000:8000 flask-app
+            echo "⏳ Waiting for app to start..."
+            sleep 10
+
+            echo "🧪 Performing health check..."
+            curl --fail http://localhost:5000/health || (echo "❌ Health check failed" && exit 1)
+
+            echo "✅ Deployment complete!"
           EOF
