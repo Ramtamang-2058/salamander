@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - master
+      - master  # or your deployment branch
 
 jobs:
   deploy:
@@ -13,25 +13,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Deploy on EC2
+      - name: Deploy via SSH
         run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            # Clone the repo if not exists
-            if [ ! -d "~/salamander" ]; then
-              git clone git@github.com:Ramtamang-2058/salamander.git ~/salamander
-            fi
-            cd ~/salamander
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+            cd flask-app || git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git flask-app && cd flask-app
             git pull origin main
-
-            # Build and run docker
-            docker build -t flaskapp .
-            docker stop flaskapp || true && docker rm flaskapp || true
-            docker run -d -p 80:5000 --name flaskapp flaskapp
+            docker stop flask-container || true
+            docker rm flask-container || true
+            docker build -t flask-app .
+            docker run -d --name flask-container -p 80:5000 flask-app
           EOF
