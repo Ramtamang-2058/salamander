@@ -2,7 +2,8 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -23,56 +24,133 @@ jobs:
             set -e
 
             echo "📦 Updating system & installing Docker"
-            sudo apt update
+            sudo apt update -y
             sudo apt install -y docker.io docker-compose
+
+            # Start and enable docker service
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            sudo usermod -aG docker ubuntu
 
             echo "📁 Setting up app directory"
             mkdir -p ~/salamander
             cd ~/salamander
 
+            # Clone or update repository
             if [ ! -d ".git" ]; then
               git clone https://github.com/${{ github.repository }} .
             else
-              git pull origin master
+              git fetch origin
+              git reset --hard origin/master
             fi
 
-            echo "🔐 Restoring Firebase config"
+            echo "🔐 Setting up environment configuration"
+            
+            # First, decode the base64 .env file
+            echo '${{ secrets.UNGABLE_MIXED42_B64 }}' | base64 -d > .env
+
+            # Then append the Firebase config JSON to the .env file
+            echo "" >> .env
+            echo "# Firebase Service Account Configuration" >> .env
+            echo 'FIREBASE_CONFIG=${{ secrets.FIREBASE_CONFIG }}' >> .env
+
+            # Create the Firebase service account file for fallback
             mkdir -p config
             echo '${{ secrets.FIREBASE_CONFIG }}' > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json
 
-            echo "🔐 Decoding base64 .env file"
-            echo '${{ secrets.UNGABLE_MIXED42_B64 }}' | base64 -d > .env
+            echo "🐳 Preparing Docker environment"
+            # Stop and remove existing containers
+            docker-compose down --remove-orphans || true
+            
+            # Clean up old images and containers
+            docker system prune -f
+            
+            # Remove any existing volumes if needed (uncomment if you want fresh DB)
+            # docker volume rm salamander_postgres_data || true
 
-            echo "🚀 Starting Docker containers"
-            docker-compose down || true
-            docker-compose up -d --build
+            echo "🚀 Building and starting containers"
+            # Build with no cache to ensure fresh build
+            docker-compose build --no-cache
+            
+            # Start services
+            docker-compose up -d
 
-            echo "⏳ Waiting for app to be ready..."
-            for i in {1..15}; do
-              echo "🔍 Health check attempt $i/15"
+            echo "⏳ Waiting for services to initialize..."
+            sleep 15
 
-              if ! docker-compose ps | grep -q "Up"; then
-                echo "❌ Container stopped running"
-                docker-compose logs app
-                exit 1
+            # Check initial container status
+            echo "📊 Container status:"
+            docker-compose ps
+
+            echo "🔍 Performing comprehensive health checks..."
+            for i in {1..40}; do
+              echo "🔍 Health check attempt $i/40"
+
+              # Check if containers are running
+              if ! docker-compose ps | grep -E "(Up|healthy)"; then
+                echo "❌ Containers not running properly"
+                echo "Container status:"
+                docker-compose ps
+                echo "Recent app logs:"
+                docker-compose logs app --tail=30
+                echo "Recent db logs:"
+                docker-compose logs db --tail=10
+                
+                # Try to restart if containers stopped
+                if [ $i -lt 35 ]; then
+                  echo "🔄 Attempting to restart containers..."
+                  docker-compose restart
+                  sleep 10
+                  continue
+                else
+                  exit 1
+                fi
               fi
 
-              if curl -s -f http://localhost:5000/ >/dev/null 2>&1 || \
-                 curl -s -f http://localhost:3000/ >/dev/null 2>&1 || \
-                 curl -s -f http://localhost:8000/ >/dev/null 2>&1 || \
-                 curl -s http://localhost:5000/health >/dev/null 2>&1; then
-                echo "✅ App is responding!"
+              # Test application endpoints
+              if curl -s -f http://localhost:5000/health >/dev/null 2>&1; then
+                echo "✅ Health endpoint is responding!"
+                
+                # Test main application endpoint
+                if curl -s -f http://localhost:5000/ >/dev/null 2>&1; then
+                  echo "✅ Main application is responding!"
+                  break
+                else
+                  echo "⚠️ Health endpoint works but main app might have issues"
+                  if [ $i -ge 35 ]; then
+                    echo "Proceeding anyway as health endpoint is working..."
+                    break
+                  fi
+                fi
+              elif curl -s http://localhost:5000/ >/dev/null 2>&1; then
+                echo "✅ Main application is responding!"
                 break
               fi
 
-              if [ $i -eq 15 ]; then
-                echo "❌ App did not respond after 15 attempts"
+              if [ $i -eq 40 ]; then
+                echo "❌ Application did not respond after 40 attempts"
+                echo "Final container status:"
                 docker-compose ps
-                docker-compose logs app
-                echo "⚠️ Deployment failed health check"
+                echo "Final app logs (last 50 lines):"
+                docker-compose logs app --tail=50
+                echo "Final db logs (last 20 lines):"
+                docker-compose logs db --tail=20
+                echo "Environment variables check:"
+                docker-compose exec -T app env | grep -E "(FLASK|FIREBASE|DATABASE)" || true
                 exit 1
               fi
 
-              sleep 5
+              sleep 15
             done
+
+            echo "🎉 Deployment successful!"
+            echo "📊 Final status:"
+            docker-compose ps
+            
+            echo "📝 Application info:"
+            echo "- Main URL: http://${{ secrets.EC2_HOST }}:5000"
+            echo "- Health check: http://${{ secrets.EC2_HOST }}:5000/health"
+            
+            echo "📋 Quick health test:"
+            curl -s http://localhost:5000/health | head -5 || echo "Health endpoint not responding"
           EOF

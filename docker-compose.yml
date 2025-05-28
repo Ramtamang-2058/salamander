@@ -1,29 +1,48 @@
+version: '3.8'
+
 services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: salamander
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: salamander
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salamander -d salamander"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
   app:
     build: .
     ports:
       - "5000:5000"
     environment:
       - FLASK_APP=app.py
-      - FLASK_ENV=development
+      - FLASK_ENV=production
       - FLASK_RUN_HOST=0.0.0.0
+      - SQLALCHEMY_DATABASE_URI=postgresql://salamander:password@db:5432/salamander
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     volumes:
-      - .:/app
-
-  db:
-    image: postgres:13
-    environment:
-      - POSTGRES_USER=salamander
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=salamander
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - ./static:/app/static
+      - ./uploads:/app/uploads
 
 volumes:
   postgres_data:

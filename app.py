@@ -54,7 +54,57 @@ billing_service = BillingService()
 auth_service = AuthService()
 rate_limiter = RateLimiter(max_requests=3, window_seconds=86400)
 
+# test
 
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for deployment verification"""
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "services": {}
+    }
+
+    # Test database connection
+    try:
+        from sqlalchemy import text
+        if 'db' in globals():
+            db.session.execute(text('SELECT 1'))
+            db.session.commit()
+            health_status["services"]["database"] = "healthy"
+        else:
+            health_status["services"]["database"] = "not configured"
+    except Exception as e:
+        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Test Firebase connection
+    try:
+        from auth.firebase_auth import firebase_admin
+        if firebase_admin._apps:
+            health_status["services"]["firebase"] = "healthy"
+        else:
+            health_status["services"]["firebase"] = "not initialized"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["services"]["firebase"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+
+    # Check environment variables
+    required_env_vars = ['FIREBASE_PROJECT_ID', 'FLASK_SECRET_KEY']
+    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
+
+    if missing_vars:
+        health_status["services"]["environment"] = f"missing variables: {missing_vars}"
+        health_status["status"] = "degraded"
+    else:
+        health_status["services"]["environment"] = "healthy"
+
+    # Return appropriate HTTP status code
+    status_code = 200 if health_status["status"] == "healthy" else 503
+
+    return health_status, status_code
 
 @app.route('/', endpoint='dashboard')
 def index():
