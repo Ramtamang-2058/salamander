@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - master  # or your deployment branch
+      - master
 
 jobs:
   deploy:
@@ -11,20 +11,32 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
-
-      - name: Deploy via SSH
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd flask-app || git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git flask-app && cd flask-app
-            git pull origin main
-            docker stop flask-container || true
-            docker rm flask-container || true
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Deploy to EC2 via SSH
+        run: |
+          ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e  # exit on any error
+            cd ~/your-app-directory || mkdir ~/your-app-directory && cd ~/your-app-directory
+
+            echo "Pulling latest code..."
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }} . 
+            else
+              git pull origin master
+            fi
+
+            echo "Building Docker image..."
             docker build -t flask-app .
-            docker run -d --name flask-container -p 80:5000 flask-app
+
+            echo "Stopping and removing any existing container..."
+            docker rm -f flask-container || true
+
+            echo "Starting new Docker container..."
+            docker run -d --name flask-container -p 8000:8000 flask-app
           EOF
