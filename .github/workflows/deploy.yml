@@ -22,11 +22,11 @@ jobs:
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            echo "📦 Updating and installing dependencies"
+            echo "📦 Updating system & installing Docker"
             sudo apt update
             sudo apt install -y docker.io docker-compose
 
-            echo "📁 Cloning or updating repo"
+            echo "📁 Setting up app directory"
             mkdir -p ~/salamander
             cd ~/salamander
 
@@ -36,39 +36,23 @@ jobs:
               git pull origin master
             fi
 
-            echo "🔐 Writing Firebase config"
+            echo "🔐 Restoring Firebase config"
             mkdir -p config
             echo '${{ secrets.FIREBASE_CONFIG }}' > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json
 
-            echo "📄 Handling .env file"
-            # Create from existing or empty
-            touch .env
+            echo "🔐 Decoding base64 .env file"
+            echo '${{ secrets.UNGABLE_MIXED42_B64 }}' | base64 -d > .env
 
-            # Backup existing in case
-            cp .env .env.backup.$(date +%s)
-
-            # Write GitHub secret into temp file
-            echo '${{ secrets.UNGABLE_MIXED42 }}' > .env.github
-
-            # Merge both: env values from GitHub secret take precedence
-            (
-              grep -v '^#' .env.github
-              grep -v '^#' .env | grep -v -E "^($(cut -d= -f1 .env.github | tr '\n' '|' | sed 's/|$//'))="
-            ) > .env.merged
-
-            mv .env.merged .env
-            rm .env.github
-
-            echo "🚀 Starting Docker"
+            echo "🚀 Starting Docker containers"
             docker-compose down || true
             docker-compose up -d --build
 
-            echo "🩺 Running health checks"
+            echo "⏳ Waiting for app to be ready..."
             for i in {1..15}; do
-              echo "🔍 Health check $i/15"
+              echo "🔍 Health check attempt $i/15"
 
               if ! docker-compose ps | grep -q "Up"; then
-                echo "❌ Container not running"
+                echo "❌ Container stopped running"
                 docker-compose logs app
                 exit 1
               fi
@@ -76,16 +60,17 @@ jobs:
               if curl -s -f http://localhost:5000/ >/dev/null 2>&1 || \
                  curl -s -f http://localhost:3000/ >/dev/null 2>&1 || \
                  curl -s -f http://localhost:8000/ >/dev/null 2>&1 || \
-                 curl -s -f http://localhost:5000/health >/dev/null 2>&1; then
-                echo "✅ App is healthy!"
+                 curl -s http://localhost:5000/health >/dev/null 2>&1; then
+                echo "✅ App is responding!"
                 break
               fi
 
               if [ $i -eq 15 ]; then
-                echo "❌ App failed to start after 15 attempts"
+                echo "❌ App did not respond after 15 attempts"
                 docker-compose ps
                 docker-compose logs app
-                break
+                echo "⚠️ Deployment failed health check"
+                exit 1
               fi
 
               sleep 5
