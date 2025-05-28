@@ -20,7 +20,7 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << EOF
             set -e
 
             echo "📦 Updating system & installing Docker"
@@ -30,80 +30,83 @@ jobs:
             # Start and enable docker service
             sudo systemctl start docker
             sudo systemctl enable docker
+
+            # Add ubuntu user to docker group (effective after next login)
             sudo usermod -aG docker ubuntu
 
             echo "📁 Setting up app directory"
             mkdir -p ~/salamander
             cd ~/salamander
 
+            # Determine branch name dynamically from GITHUB_REF environment variable
+            BRANCH="\${GITHUB_REF##refs/heads/}"
+            # fallback if GITHUB_REF not set
+            if [ -z "\$BRANCH" ]; then
+              BRANCH="master"
+            fi
+
             # Clone or update repository
             if [ ! -d ".git" ]; then
               git clone https://github.com/${{ github.repository }} .
             else
               git fetch origin
-              git reset --hard origin/master
+              git reset --hard origin/\$BRANCH
             fi
 
             echo "🔐 Setting up environment configuration"
             
-            # First, decode the base64 .env file
+            # Decode the base64 encoded .env file
             echo '${{ secrets.UNGABLE_MIXED42_B64 }}' | base64 -d > .env
 
-            # Create the Firebase service account file (primary method)
+            # Create Firebase service account JSON file with secret expanded
             mkdir -p config
-            cat > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json << 'FIREBASE_JSON_EOF'
+            cat > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json << EOF2
 ${{ secrets.FIREBASE_CONFIG }}
-FIREBASE_JSON_EOF
+EOF2
 
-            # Also set the Firebase config as an environment variable for Docker
-            # We'll pass it directly to Docker Compose rather than adding to .env
+            # Optionally export FIREBASE_CONFIG for docker-compose environment (if needed)
             export FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}'
             
-            # Verify the files are created correctly
             echo "📋 Environment file status:"
             ls -la .env config/ || true
-            echo "📋 Environment file line count: $(wc -l < .env)"
+            echo "📋 .env file line count: \$(wc -l < .env)"
 
             echo "🐳 Preparing Docker environment"
-            # Stop and remove existing containers
             docker-compose down --remove-orphans || true
-            
-            # Clean up old images and containers
+
+            # WARNING: Prune cleans unused images, containers, networks, and cache
+            # Make sure this is safe in your environment
             docker system prune -f
-            
-            # Remove any existing volumes if needed (uncomment if you want fresh DB)
+
+            # Uncomment below line if you want to remove old DB volumes and start fresh
             # docker volume rm salamander_postgres_data || true
 
             echo "🚀 Building and starting containers"
-            # Build with no cache to ensure fresh build
             docker-compose build --no-cache
-            
-            # Start services with Firebase config environment variable
+
+            # Run docker-compose with firebase config env var explicitly set
             FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}' docker-compose up -d
 
             echo "⏳ Waiting for services to initialize..."
             sleep 15
 
-            # Check initial container status
             echo "📊 Container status:"
             docker-compose ps
 
             echo "🔍 Performing comprehensive health checks..."
             for i in {1..40}; do
-              echo "🔍 Health check attempt $i/40"
+              echo "🔍 Health check attempt \$i/40"
 
-              # Check if containers are running
+              # Check if containers are running or healthy
               if ! docker-compose ps | grep -E "(Up|healthy)"; then
                 echo "❌ Containers not running properly"
-                echo "Container status:"
                 docker-compose ps
                 echo "Recent app logs:"
                 docker-compose logs app --tail=30
                 echo "Recent db logs:"
                 docker-compose logs db --tail=10
-                
-                # Try to restart if containers stopped
-                if [ $i -lt 35 ]; then
+
+                if [ \$i -lt 35 ]; then
                   echo "🔄 Attempting to restart containers..."
                   docker-compose restart
                   sleep 10
@@ -113,29 +116,28 @@ FIREBASE_JSON_EOF
                 fi
               fi
 
-              # Test application endpoints
+              # Check app health endpoints
               if curl -s -f http://localhost:5000/health >/dev/null 2>&1; then
                 echo "✅ Health endpoint is responding!"
-                
-                # Test main application endpoint
+
                 if curl -s -f http://localhost:5000/ >/dev/null 2>&1; then
                   echo "✅ Main application is responding!"
                   break
                 else
                   echo "⚠️ Health endpoint works but main app might have issues"
-                  if [ $i -ge 35 ]; then
+                  if [ \$i -ge 35 ]; then
                     echo "Proceeding anyway as health endpoint is working..."
                     break
                   fi
                 fi
+
               elif curl -s http://localhost:5000/ >/dev/null 2>&1; then
                 echo "✅ Main application is responding!"
                 break
               fi
 
-              if [ $i -eq 40 ]; then
+              if [ \$i -eq 40 ]; then
                 echo "❌ Application did not respond after 40 attempts"
-                echo "Final container status:"
                 docker-compose ps
                 echo "Final app logs (last 50 lines):"
                 docker-compose logs app --tail=50
@@ -152,11 +154,11 @@ FIREBASE_JSON_EOF
             echo "🎉 Deployment successful!"
             echo "📊 Final status:"
             docker-compose ps
-            
+
             echo "📝 Application info:"
             echo "- Main URL: http://${{ secrets.EC2_HOST }}:5000"
             echo "- Health check: http://${{ secrets.EC2_HOST }}:5000/health"
-            
+
             echo "📋 Quick health test:"
             curl -s http://localhost:5000/health | head -5 || echo "Health endpoint not responding"
           EOF
