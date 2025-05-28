@@ -7,11 +7,14 @@ services:
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
-      - SQLALCHEMY_DATABASE_URI=postgresql://user:password@db:5432/salamander
+      - SQLALCHEMY_DATABASE_URI=postgresql://salamander:password@db:5432/salamander
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
       - KHALTI_SECRET_KEY=${KHALTI_SECRET_KEY}
       - ESEWA_SECRET_KEY=${ESEWA_SECRET_KEY}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
       - FLASK_RUN_HOST=0.0.0.0
+    env_file:
+      - .env
     depends_on:
       - db
     volumes:
@@ -19,10 +22,7 @@ services:
   db:
     image: postgres:13
     environment:
-#      -  Uncomment the line below for server.
-      - POSTGRES_USER=salamander
-#      -  Uncomment the line below if you want to set a specific user local
-#      - POSTGRES_USER=salamander
+      - POSTGRES_USER=salamander #postgres for local development
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=salamander
     volumes:

@@ -34,6 +34,14 @@ jobs:
               git pull origin master
             fi
 
+            # Create .env file with all secrets
+            cat > .env << 'ENVEOF'
+            FIREBASE_CONFIG=${{ secrets.FIREBASE_CONFIG }}
+            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
+            KHALTI_SECRET_KEY=${{ secrets.KHALTI_SECRET_KEY }}
+            ESEWA_SECRET_KEY=${{ secrets.ESEWA_SECRET_KEY }}
+            ENVEOF
+            
             echo "🚀 Building and starting containers"
             docker-compose down || true
             docker-compose up -d --build
@@ -77,7 +85,6 @@ jobs:
                 docker-compose ps
                 echo "📄 Final app logs:"
                 docker-compose logs app
-                # Don't exit with error - deployment succeeded, app might just need more time
                 echo "⚠️  Deployment completed but app health check failed"
                 break
               fi
