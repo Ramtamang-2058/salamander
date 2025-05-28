@@ -23,7 +23,7 @@ jobs:
         run: |
           ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e  # exit on any error
-            cd ~/your-app-directory || mkdir ~/your-app-directory && cd ~/your-app-directory
+            cd ~/salamander || mkdir ~/salamander && cd ~/salamander
 
             echo "Pulling latest code..."
             if [ ! -d ".git" ]; then
