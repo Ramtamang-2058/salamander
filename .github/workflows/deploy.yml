@@ -61,9 +61,9 @@ jobs:
             # Create Firebase service account JSON file with secret expanded
             mkdir -p config
             cat > config/salamanders-122ec-firebase-adminsdk-fbsvc-8c226bb171.json << EOF2
-${{ secrets.FIREBASE_CONFIG }}
-EOF2
-
+          ${{ secrets.FIREBASE_CONFIG }}
+            EOF2
+          
             # Optionally export FIREBASE_CONFIG for docker-compose environment (if needed)
             export FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}'
             
