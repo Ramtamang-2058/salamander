@@ -16,9 +16,7 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          cat <<EOF > ~/.ssh/id_rsa
-${{ secrets.EC2_KEY }}
-EOF
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
@@ -26,7 +24,7 @@ EOF
         run: |
           ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             cd ~/salamander || git clone https://github.com/Ramtamang-2058/salamander.git salamander && cd salamander
-            git pull origin master
+            git pull origin master  # or main
             docker build -t flaskapp .
             docker stop flaskapp || true && docker rm flaskapp || true
             docker run -d -p 80:5000 --name flaskapp flaskapp
