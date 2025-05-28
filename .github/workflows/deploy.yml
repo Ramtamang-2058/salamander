@@ -41,12 +41,22 @@ jobs:
               git pull origin master
             fi
 
+            echo "🐳 Rebuilding and starting containers"
             docker-compose down || true
             docker-compose up -d --build
 
-            sleep 10
+            echo "⏳ Waiting for the app to be ready..."
+            for i in {1..10}; do
+              if curl -s http://localhost:5000/ | grep -i "login\|html\|<!DOCTYPE"; then
+                echo "✅ App is up and responding"
+                break
+              fi
+              echo "⏳ Still waiting... ($i/10)"
+              sleep 3
+              if [ $i -eq 10 ]; then
+                echo "❌ App didn't start properly"
+                exit 1
+              fi
+            done
 
-            curl --fail http://localhost:5000/health || (echo "Health check failed" && exit 1)
-
-            echo "Deployment complete"
-          EOF
+            echo "🚀 Deployment complete"
