@@ -24,39 +24,43 @@ jobs:
           ssh -tt -i key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            echo "Checking docker-compose installation..."
+            echo "🔍 Checking docker-compose..."
             if ! command -v docker-compose &> /dev/null; then
-              echo "Installing docker-compose..."
+              echo "📦 Installing docker-compose..."
               sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
             fi
             docker-compose --version
 
+            echo "📁 Setting up salamander directory..."
             mkdir -p ~/salamander
             cd ~/salamander
 
             if [ ! -d ".git" ]; then
-              git clone https://github.com/${{ github.repository }} . 
+              git clone https://github.com/${{ github.repository }} .
             else
               git pull origin master
             fi
 
-            echo "🐳 Rebuilding and starting containers"
+            echo "🐳 Rebuilding and starting containers..."
             docker-compose down || true
             docker-compose up -d --build
 
             echo "⏳ Waiting for the app to be ready..."
             for i in {1..10}; do
-              if curl -s http://localhost:5000/ | grep -i "login\|html\|<!DOCTYPE"; then
-                echo "✅ App is up and responding"
+              STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/)
+              if [ "$STATUS_CODE" == "200" ]; then
+                echo "✅ App is up and responding with 200 OK"
                 break
               fi
               echo "⏳ Still waiting... ($i/10)"
               sleep 3
               if [ $i -eq 10 ]; then
-                echo "❌ App didn't start properly"
+                echo "❌ App didn't start properly (status code: $STATUS_CODE)"
+                docker-compose logs
                 exit 1
               fi
             done
 
             echo "🚀 Deployment complete"
+          EOF
