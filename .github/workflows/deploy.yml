@@ -19,7 +19,7 @@ jobs:
 
       - name: Deploy via SSH
         run: |
-          ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
             sudo apt update
@@ -39,7 +39,7 @@ jobs:
             docker-compose up -d --build
 
             echo "⏳ Waiting for app..."
-            for i in {1..50}; do
+            for i in {1..10}; do
               if curl -s http://localhost:5000/ | grep -i "login\\|html\\|<!DOCTYPE"; then
                 echo "✅ App is up"
                 break
