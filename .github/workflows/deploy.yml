@@ -21,18 +21,16 @@ jobs:
 
       - name: Deploy to EC2 via SSH
         run: |
-          ssh -tt -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -tt -i key.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=30 ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
             echo "Checking docker-compose installation..."
             if ! command -v docker-compose &> /dev/null; then
-              echo "docker-compose not found, installing..."
+              echo "Installing docker-compose..."
               sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
               sudo chmod +x /usr/local/bin/docker-compose
-              docker-compose --version
-            else
-              echo "docker-compose already installed"
             fi
+            docker-compose --version
 
             mkdir -p ~/salamander
             cd ~/salamander
