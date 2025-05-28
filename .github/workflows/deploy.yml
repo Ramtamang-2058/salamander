@@ -3,7 +3,7 @@ name: Deploy Flask to EC2
 on:
   push:
     branches:
-      - main  # or master
+      - master
 
 jobs:
   deploy:
