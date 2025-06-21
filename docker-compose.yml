@@ -1,3 +1,5 @@
+version: '3'
+
 services:
   db:
     image: postgres:13
@@ -14,7 +16,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
     restart: unless-stopped
 
   app:
@@ -30,15 +31,13 @@ services:
     env_file:
       - .env
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
     volumes:
       - ./static:/app/static
       - ./uploads:/app/uploads
